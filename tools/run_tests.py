@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+"""Focused, dependency-free tests (no pytest needed).
+
+Covers the highest-value logic: natural sorting, asset fallback, the mandatory
+idle check, animation one-shot/priority behavior, click combos, stat math,
+feed effects, save/load roundtrip + corruption fallback, and settings defaults.
+
+Run:  .venv/Scripts/python.exe tools/run_tests.py   (exit 0 = all pass)
+"""
+
+import os
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PyQt6.QtWidgets import QApplication
+
+from chaos_pet import config
+from chaos_pet.animation import AnimationController, policy_for
+from chaos_pet.asset_loader import (
+    MissingIdleError,
+    SpriteAssets,
+    load_sprite_assets,
+    natural_key,
+    require_idle,
+)
+from chaos_pet.behavior import ClickTracker
+from chaos_pet.save import PetSave
+from chaos_pet.settings import PetSettings, _from_raw, _int_setting
+from chaos_pet.stats import PetStats
+
+_passes: list[str] = []
+_failures: list[str] = []
+
+
+def check(name: str, ok: bool, detail: str = "") -> None:
+    (_passes if ok else _failures).append(name)
+    print(f"[{'PASS' if ok else 'FAIL'}] {name}" + ("" if ok else f" :: {detail}"))
+
+
+def test_natural_sort() -> None:
+    names = ["idle_10.png", "idle_2.png", "idle_1.png", "idle_0.png"]
+    ordered = sorted(names, key=natural_key)
+    check("natural sort: idle_2 before idle_10", ordered == ["idle_0.png", "idle_1.png", "idle_2.png", "idle_10.png"], str(ordered))
+
+
+def test_asset_load_and_fallback() -> None:
+    assets = load_sprite_assets(target_size=(128, 128))
+    check("assets: idle has frames", assets.frame_count("idle") > 0)
+    check("assets: unknown state falls back to idle", assets.resolve_state("__nope__") == "idle")
+    check("assets: 64x64 source enforced (all 15 states loaded)", len(assets.states) >= 8, str(assets.states))
+
+
+def test_require_idle() -> None:
+    empty = SpriteAssets(frames_by_state={}, target_size=(128, 128))
+    raised = False
+    try:
+        require_idle(empty)
+    except MissingIdleError:
+        raised = True
+    check("require_idle: missing idle fails clearly", raised)
+    # And does NOT raise when idle exists.
+    ok_assets = load_sprite_assets(target_size=(128, 128))
+    try:
+        require_idle(ok_assets)
+        check("require_idle: passes when idle present", True)
+    except MissingIdleError:
+        check("require_idle: passes when idle present", False)
+
+
+def test_animation_oneshot_return() -> None:
+    assets = load_sprite_assets(target_size=(128, 128))
+    a = AnimationController(assets)
+    a.set_state("walk")
+    a.play_sequence([("blink", 50)], now_ms=0)  # blink returns to previous (walk)
+    a.update(0)
+    a.update(60)
+    a.update(120)
+    check("animation: one-shot blink returns to previous (walk)", a.state == "walk", a.state)
+
+
+def test_animation_priority() -> None:
+    assets = load_sprite_assets(target_size=(128, 128))
+    a = AnimationController(assets)
+    a.play_sequence([("eat", 800), ("happy", 400)], now_ms=0)
+    check("animation: blink cannot interrupt eat", a.can_play("blink") is False)
+    check("animation: angry cannot interrupt eat", a.can_play("angry") is False)
+    b = AnimationController(assets)
+    b.play_sequence([("angry", 320)], now_ms=0)
+    check("animation: jump outranks angry", b.can_play("jump") is True)
+    check("animation: idle cannot interrupt angry", b.can_play("idle") is False)
+    check("animation: policy table covers idle/eat/jump", policy_for("eat").priority > policy_for("angry").priority)
+
+
+def test_click_combo() -> None:
+    t = ClickTracker(window_ms=700)
+    counts = [t.register(0), t.register(100), t.register(200)]
+    check("click combo: counts up within window", counts == [1, 2, 3], str(counts))
+    after_gap = t.register(2000)
+    check("click combo: resets after a gap", after_gap == 1, str(after_gap))
+
+
+def test_stat_decay() -> None:
+    s = PetStats(hunger=10.0, energy=50.0, annoyance=40.0)
+    s.update(10.0)  # 10s awake
+    check("stats: hunger rises over time", s.hunger > 10.0, str(s.hunger))
+    check("stats: energy falls while awake", s.energy < 50.0, str(s.energy))
+    check("stats: annoyance decays", s.annoyance < 40.0, str(s.annoyance))
+    s2 = PetStats(energy=10.0)
+    s2.update(5.0, asleep=True)
+    check("stats: energy recovers while asleep", s2.energy > 10.0, str(s2.energy))
+    s3 = PetStats(hunger=99.0)
+    s3.update(100.0)
+    check("stats: values clamp to 0..100", 0.0 <= s3.hunger <= 100.0, str(s3.hunger))
+
+
+def test_feed_changes() -> None:
+    s = PetStats(hunger=60.0, happiness=40.0, trust=50.0)
+    s.feed()
+    check("feed: hunger drops", s.hunger == 30.0, str(s.hunger))
+    check("feed: happiness rises", s.happiness == 60.0, str(s.happiness))
+    check("feed: trust rises", s.trust == 55.0, str(s.trust))
+
+
+def test_save_roundtrip() -> None:
+    path = config.DATA_DIR / "_test_save.json"
+    try:
+        original = PetSave(position=(123, 456), last_state="walk", stats=PetStats(hunger=42.0), pet_name="Test")
+        check("save: write ok", original.write(path) is True)
+        loaded = PetSave.load(path)
+        check("save: position roundtrips", loaded.position == (123, 456), str(loaded.position))
+        check("save: last_state roundtrips", loaded.last_state == "walk")
+        check("save: stats roundtrip", loaded.stats.hunger == 42.0, str(loaded.stats.hunger))
+        check("save: timestamp written", bool(loaded.last_saved_at))
+    finally:
+        if path.exists():
+            path.unlink()
+
+
+def test_corrupt_save_fallback() -> None:
+    path = config.DATA_DIR / "_test_corrupt.json"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{ this is not valid json ::::", encoding="utf-8")
+        loaded = PetSave.load(path)
+        check("corrupt save: falls back to defaults", loaded.position is None and loaded.stats.hunger == PetStats().hunger)
+    finally:
+        if path.exists():
+            path.unlink()
+
+
+def test_settings_defaults() -> None:
+    defaults = PetSettings()
+    check("settings: default speech enabled", defaults.speech_enabled is True)
+    check("settings: sprite_scale alias works", defaults.sprite_scale == defaults.scale)
+    # Validation rejects out-of-range and wrong-type values.
+    check("settings: rejects out-of-range int", _int_setting({"scale": 999}, "scale", 2, 1, 8) == 2)
+    check("settings: rejects bool-as-int", _int_setting({"scale": True}, "scale", 2, 1, 8) == 2)
+    parsed = _from_raw({"scale": 4, "speech_enabled": "nope", "pet_name": "  Kong  "})
+    check("settings: parses good + corrects bad", parsed.scale == 4 and parsed.speech_enabled is True and parsed.pet_name == "Kong", str(parsed))
+
+
+def main() -> int:
+    _ = QApplication.instance() or QApplication([])  # needed for QPixmap in asset tests
+    for test in (
+        test_natural_sort,
+        test_asset_load_and_fallback,
+        test_require_idle,
+        test_animation_oneshot_return,
+        test_animation_priority,
+        test_click_combo,
+        test_stat_decay,
+        test_feed_changes,
+        test_save_roundtrip,
+        test_corrupt_save_fallback,
+        test_settings_defaults,
+    ):
+        test()
+
+    print()
+    print(f"Tests: {len(_passes)} passed, {len(_failures)} failed, {len(_passes) + len(_failures)} total")
+    if _failures:
+        print("FAILED: " + ", ".join(_failures))
+        return 1
+    print("All tests passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

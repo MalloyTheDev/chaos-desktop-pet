@@ -1,0 +1,8 @@
+{
+  "sprite_scale": 2,
+  "walk_speed_px": 2.4,
+  "sleep_after_ms": 30000,
+  "starting_corner": "bottom_right",
+  "start_margin_px": 80,
+  "movement_paused": false
+}
