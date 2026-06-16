@@ -35,8 +35,8 @@ class PetStats:
         asleep: bool = False,
         idle: bool = False,
         personality_id: str = "playful",
-        hunger_rate: float = 0.05,
-        energy_rate: float = 0.08,
+        hunger_rate: float = 0.005,
+        energy_rate: float = 0.01,
         annoyance_decay: float = 4.0,
     ) -> None:
         """Advance stats by *dt_s* seconds. Sleeping recovers energy & calms."""

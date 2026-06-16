@@ -184,10 +184,10 @@ def test_settings_defaults() -> None:
     check("settings: default sound disabled", defaults.sound_enabled is False)
     parsed_sound = _from_raw({"sound_enabled": True})
     check("settings: parses sound enabled", parsed_sound.sound_enabled is True)
-    check("settings: default hunger_drift_rate", defaults.hunger_drift_rate == 0.05)
+    check("settings: default hunger_drift_rate", defaults.hunger_drift_rate == 0.005)
     parsed_drift = _from_raw({"hunger_drift_rate": 2.5, "energy_drift_rate": 999.0})
     check("settings: custom drift rate parsed", parsed_drift.hunger_drift_rate == 2.5)
-    check("settings: out-of-range drift rate corrected", parsed_drift.energy_drift_rate == 0.08)
+    check("settings: out-of-range drift rate corrected", parsed_drift.energy_drift_rate == 0.01)
 
 
 def test_trust_drift() -> None:
