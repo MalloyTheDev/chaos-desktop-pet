@@ -17,6 +17,7 @@ resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 - **Customizable Needs Rates**: Settings fields (`hunger_drift_rate`, `energy_drift_rate`, `annoyance_decay_rate`) to customize Needs drift behavior.
 - **Mood Alert Speeches**: Awake pets complain occasionally if Hunger (>= 75) or Energy (<= 15) metrics cross critical thresholds.
 - **Idle Energy Conservation**: Stamina depletion is paused when Bongo is in passive idle states (`idle`, `sit`, `blink`, `look_around`, `yawn`, `wake`), only draining during active actions (walking, running, eating, jumping, knockback).
+- **Tuned Needs Drift Rates**: Balanced default hunger drift rate (reduced from `0.6` to `0.05`) and active energy decay rate (reduced from `0.45` to `0.08`) to ensure Bongo behaves like a low-maintenance companion rather than a high-maintenance pet.
 
 ### Changed
 - Wired `personality_id` to modulate stat drift rates and voice line selection.

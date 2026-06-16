@@ -12,7 +12,7 @@ Status legend: ✅ fixed · 🟡 partially addressed · ⬜ open · ♻️ stand
 ## 2026-06-16 — Security Hardening, Bug Fix & Feature Audit
 
 **Method.** Full review of file access vectors, path traversal guards, multi-monitor coordinates clamping, programmatic WAV wave generator outputs, and new Pet Status QDialog / customizable drift settings. Verified via automated unit/behavior test extensions.
-**Result:** 7 findings resolved.
+**Result:** 8 findings resolved.
 
 ### Findings
 
@@ -25,6 +25,7 @@ Status legend: ✅ fixed · 🟡 partially addressed · ⬜ open · ♻️ stand
 | INFO | Pet lacks animations/behavior during click dragging and drop release. | `app.py` | ✅ Added — Integrated `fall` sprite loop during drag, custom drop `land` sequence on release, and transient `drag` speech lines. |
 | INFO | Needs drift rates are hardcoded and stats are not easily viewable or editable in-app. | `dialogs.py`, `settings.py`, `stats.py` | ✅ Added — Custom Needs settings rates (`hunger_drift_rate`, `energy_drift_rate`, `annoyance_decay_rate`) and a beautiful QSS-styled Pet Status dialog showing stats in real-time and allowing instant name/personality updates. |
 | INFO | Awake pet's energy depletes at a constant rate regardless of active vs passive idle states. | `stats.py`, `app.py` | ✅ Changed — Paused energy decay during passive idle/variety states (`idle`, `sit`, `blink`, `look_around`, `yawn`, `wake`), draining only during active action sequences. |
+| INFO | Default awake needs drift rates are too fast (hunger starving in ~2.7 min, energy depleting in ~3.7 min), making Bongo high maintenance. | `config.py`, `stats.py`, `settings.py` | ✅ Changed — Balanced default hunger rise rate (reduced to `0.05/s` = ~33 min capacity) and active energy decay rate (reduced to `0.08/s` = ~20 min active capacity). |
 
 ### Live test evidence (2026-06-16)
 - Extended unit tests in `run_tests.py` (52/52 passed).
