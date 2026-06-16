@@ -252,6 +252,12 @@ def test_security_guards() -> None:
     bad_voice_lines = VoiceLines.load(bad_path)
     check("security: bad voice lines path fallback to default", bad_voice_lines.get("click") is not None)
 
+    from chaos_pet.sfx import _generate_wav
+    # test generate outside project path is blocked
+    bad_sfx_path = Path("C:/Windows/System32/nonexistent_sfx.wav") if os.name == "nt" else Path("/etc/nonexistent_sfx.wav")
+    _generate_wav(bad_sfx_path, 0.1, func=lambda t, d: 0.0)
+    check("security: bad sfx path write refused", not bad_sfx_path.exists())
+
 
 def main() -> int:
     _ = QApplication.instance() or QApplication([])  # needed for QPixmap in asset tests

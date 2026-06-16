@@ -10,11 +10,15 @@ from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from . import config
+from .persistence import is_project_local
 
 LOGGER = logging.getLogger(__name__)
 
 
 def _generate_wav(path: Path, duration: float, sample_rate: int = 22050, func=None) -> None:
+    if not is_project_local(path):
+        LOGGER.warning("Refusing to generate sound outside project: %s", path)
+        return
     num_samples = int(duration * sample_rate)
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -136,6 +140,9 @@ class SoundManager(QObject):
             return
 
         sound_path = config.SOUNDS_DIR / f"{name}.wav"
+        if not is_project_local(sound_path):
+            LOGGER.warning("Refusing to play sound outside project: %s", sound_path)
+            return
         if not sound_path.exists():
             LOGGER.warning("Sound file not found: %s", sound_path)
             return

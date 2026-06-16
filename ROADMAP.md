@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Vision & Roadmap
 
-**Status: v0.4.0 · local-only · fully offline · no AI/network**
+**Status: v0.5.0 · local-only · fully offline · no AI/network**
 
 This document is the big picture: what the project is, the principle behind it,
 where it is now, and where it's going. For setup/usage see [README.md](README.md);
@@ -37,21 +37,22 @@ offline experience must be genuinely good on its own first.
 
 ---
 
-## Where we are now (v0.4)
+## Where we are now (v0.5)
 
-The original "feel-alive" roadmap below was planned as v0.1 → v0.8. As of **v0.4**
+The original "feel-alive" roadmap below was planned as v0.1 → v0.8. As of **v0.5**
 all of those feel-first milestones have landed. Current capabilities:
 
 | System | What works today |
 | --- | --- |
 | **Rendering** | Transparent always-on-top window; cached 64×64 frames, nearest-neighbor scaling; missing optional states fall back to `idle`, mandatory `idle` fails loudly |
 | **Animation** | Looping + one-shot states with a **priority/interrupt policy** (no thrashing; one-shots return to idle/previous) |
-| **Movement** | Idle wander, cursor follow (walk/run), screen-edge clamping (to the pet's own monitor), drag-to-reposition |
-| **Moods** | `PetStats` (hunger, energy, happiness, annoyance, curiosity, trust) drift over time and react to interaction |
-| **Interaction** | Escalating left-clicks (1 happy/curious · 3 angry · 5 jump+knockback), right-click context menu, banana feeding, pause/resume, toggle size |
-| **Speech** | Local, offline voice lines in temporary click-through bubbles (editable JSON, disableable) |
-| **Persistence** | Atomic project-local `data/save.json` + `data/settings.json`; rotating `logs/chaos_pet.log` |
+| **Movement** | Idle wander, cursor follow (walk/run), screen-edge clamping (to the pet's own monitor), drag-to-reposition with `fall`/`land` animations |
+| **Moods** | `PetStats` (hunger, energy, happiness, annoyance, curiosity, trust) drift over time and react to interaction. Starts at `80.0` content target. |
+| **Interaction** | Escalating left-clicks (1 happy/curious · 3 angry · 5 jump+knockback), right-click context menu, banana feeding, pause/resume, toggle size, QSS Pet Status dialog |
+| **Speech** | Local, offline voice lines in temporary click-through bubbles (editable JSON, disableable) and critical needs alerts |
+| **Persistence** | Atomic project-local `data/save.json` + `data/settings.json` (schema v2); rotating `logs/chaos_pet.log` |
 | **Sleep cycle** | `yawn` → `sleep`, `wake` on attention; low energy nudges sleep sooner |
+| **Sound** | Synthetic sound generator (click squeak, feed munch, sleep snore, jump boing) generated programmatically on startup |
 
 ### Release history
 
@@ -60,31 +61,19 @@ all of those feel-first milestones have landed. Current capabilities:
 - **v0.3** — Idle variety (`look_around`/`sit`/`blink`), sleep transition (`yawn`→`sleep`→`wake`), tray hide/show
 - **v0.4** — Mood stats, animation priority policy, click-combo escalation, banana feeding (+`jump`),
   local speech bubbles, save/settings/logs, and robustness fixes (Esc-quit, no-screen guard, multi-monitor clamp)
+- **v0.5** — Synthetic local sound effects (squeak, munch, snore, boing), personality modulations,
+  trust-based behavior, drag-to-fall/release-to-land animations, status dashboard dialog,
+  low-maintenance needs & happiness stats tuning, and schema v2 settings migration
 
 ---
 
 ## Where we're going
 
-The feel-first foundation is in place. The next phase deepens *personality* and
-*memory*, then polish — still 100% offline.
+The core feel-first foundation and local sound system are fully in place. Next steps focus on further polish and packaging:
 
-### Next (small, additive)
-- **Wire `personality_id`** so it actually modulates stat drift and line choice
-  (e.g. `playful` = faster curiosity, `lazy` = faster energy decay). Currently stored but inert.
-- **`debug_enabled` overlay** — a tiny corner readout of live stats for tuning.
-- **`animation_speed_multiplier`** applied to one-shot sequence durations (today it only scales the frame timer).
-
-### v0.5 — Sound (deliberately deferred until behavior felt good — it does now)
-- Tiny local SFX: click squeak, feed munch, sleep snore, jump boing. Off by default, toggleable.
-
-### Memory & loyalty (the "memory" leg of the formula)
-- Trust-based behavior: high trust → follows more eagerly / hangs near you;
-  low trust (from click-spam abuse) → keeps its distance, slower to forgive.
-- Longer-horizon mood memory persisted across sessions (already saved; use it more).
-
-### Later / polish
-- Multi-monitor speech-bubble clamping; richer idle variety; tuning pass after playtesting.
-- Optional packaging to a portable EXE — **only after** the experience is solid.
+### Next / polish
+- Multi-monitor speech-bubble clamping (done); richer idle variety; further gameplay balance adjustments.
+- Optional packaging to a portable EXE (config script at `tools/build_exe.py`).
 
 ### Explicitly out of scope (for now, by design)
 - **AI layer.** Someday an *optional, opt-in* AI could read the same

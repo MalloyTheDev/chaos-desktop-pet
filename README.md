@@ -5,7 +5,7 @@ loads local 64×64 transparent PNG frames, scales them crisply with
 nearest-neighbor filtering, and shows the pet in a transparent, always-on-top
 PyQt6 window with moods, reactions, feeding, and local speech bubbles.
 
-**Status:** v0.4.0 · local-only · fully offline · no AI/network/telemetry.
+**Status:** v0.5.0 · local-only · fully offline · no AI/network/telemetry.
 
 The goal is a creature that feels *alive* — responsive and moody — entirely
 offline and deterministic. The big picture and roadmap are in
@@ -32,13 +32,16 @@ offline and deterministic. The big picture and roadmap are in
   `idle` (and a missing `idle` fails with a clear error).
 - Animation **priority/interrupt policy** — one-shots don't thrash; click-spam is safe.
 - Idle wander, cursor follow (`walk`/`run`), screen-edge clamping, drag-to-move.
-- **Moods** (`hunger, energy, happiness, annoyance, curiosity, trust`) that drift and react.
+- **Moods** (`hunger`, `energy`, `happiness`, `annoyance`, `curiosity`, `trust`) that drift and react.
+- **Interactive Drag Animations** — loops `fall` sprite during drag and executes a cushioning `land` sequence on drop release.
+- **Pet Status Dialog** — QSS-styled dashboard displaying Needs stats in real-time and allowing name/personality changes.
+- **Local Sound Effects (SFX)** — click squeak, feed munch, sleep snore, jump boing (programmatically generated on startup, toggleable).
 - Escalating left-clicks (1 happy/curious · 3 angry · 5 jump+knockback), banana feeding,
   right-click context menu, pause/resume, toggle size.
-- Local, offline **speech bubbles** (editable lines, disableable).
+- Local, offline **speech bubbles** (editable lines, disableable) and occasional mood alerts.
 - Sleep cycle (`yawn`→`sleep`→`wake`); project-local save/settings/logs.
 
-See [ROADMAP.md](ROADMAP.md) for the full feature history (v0.1 → v0.4) and what's next.
+See [ROADMAP.md](ROADMAP.md) for the full feature history (v0.1 → v0.5) and what's next.
 
 ## Setup
 
@@ -126,14 +129,18 @@ All runtime data lives inside this project folder. Nothing is written elsewhere.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "scale": 2,
   "pet_name": "Bongo",
   "personality_id": "playful",
   "speech_enabled": true,
   "debug_enabled": false,
+  "sound_enabled": false,
   "movement_speed_multiplier": 1.0,
   "animation_speed_multiplier": 1.0,
+  "hunger_drift_rate": 0.0005,
+  "energy_drift_rate": 0.001,
+  "annoyance_decay_rate": 4.0,
   "walk_speed_px": 2.4,
   "sleep_after_ms": 30000,
   "starting_corner": "bottom_right",
@@ -164,16 +171,13 @@ No-window checks (offscreen Qt; no pytest needed):
 ```powershell
 python tools\validate_assets.py      # per-PNG 64x64 + alpha, and the mandatory 'idle' state
 python tools\smoke_test.py           # load settings + assets, check idle fallback, no window
-python tools\run_tests.py            # 33 unit tests: stats, save/load, animation policy, settings, combos
-python tools\behavior_scenarios.py   # 19 movement/animation scenario tests
+python tools\run_tests.py            # 57 unit tests: stats, save/load, animation policy, settings, combos, migration
+python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 ```
 
 ## Known limitations
 
-- No sound yet (planned v0.5 — deliberately deferred until behavior felt good)
-- No AI behavior, and none planned for the offline build — see [ROADMAP.md](ROADMAP.md)
 - No installer or EXE packaging yet; no startup integration (by design)
-- `personality_id` / `debug_enabled` / `animation_speed_multiplier` are partial (see roadmap)
 - Movement is intentionally simple and may need tuning after playtesting
 
 ## License

@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Architecture
 
-How the code fits together (v0.4). For the vision and roadmap see
+How the code fits together (v0.5). For the vision and roadmap see
 [ROADMAP.md](ROADMAP.md); for setup/usage see [README.md](README.md).
 
 ## Design shape
@@ -20,7 +20,9 @@ main.py
               ├─ SpriteAssets                         (asset_loader.py)
               ├─ SpeechBubble + VoiceLines            (speech.py)
               ├─ PetSettings                          (settings.py)
-              └─ PetSave                              (save.py → persistence.py)
+              ├─ PetSave                              (save.py → persistence.py)
+              ├─ SoundManager                         (sfx.py)
+              └─ PetStatusDialog                      (dialogs.py)
 ```
 
 ## Modules
@@ -37,6 +39,8 @@ main.py
 | `animation.py` | `AnimationController` + `StatePolicy` priority/interrupt table | Qt pixmaps | no |
 | `behavior.py` | `PetBehavior` (follow/sleep/blink/idle/knockback) + `ClickTracker` (pure math) | minimal | no |
 | `speech.py` | `VoiceLines` (local JSON) + `SpeechBubble` (click-through popup) | yes | reads/writes JSON |
+| `sfx.py` | `SoundManager` + WAV generator: programmatically builds / plays local synthetic SFX | yes (Qt Audio) | yes |
+| `dialogs.py` | `PetStatusDialog`: Premium QSS dark-themed dashboard showing stats & name/personality edit | yes | yes (saves settings) |
 | `app.py` | `PetWindow` + `run()`: timers, rendering, input, menus, wiring, logging | yes | yes |
 
 ## Runtime loops (timers)

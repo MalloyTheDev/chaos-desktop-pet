@@ -26,9 +26,10 @@ writes (temp file then `os.replace`, so a crash can't corrupt an existing file):
 | `data/settings.json` | user settings (migrated once from legacy `./settings.json`) |
 | `data/save.json` | window position, last state, mood stats, pet identity |
 | `data/voice_lines.json` | editable local speech lines |
+| `assets/sounds/` | programmatically generated synthetic WAV sound files |
 | `logs/chaos_pet.log` | rotating log — startup/shutdown, asset validation, save/load, caught errors |
 
-`data/` and `logs/` are git-ignored (machine-local runtime state).
+`data/`, `logs/`, and `assets/sounds/` are git-ignored (machine-local runtime state).
 
 ## Defensive details
 
