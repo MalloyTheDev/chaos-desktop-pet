@@ -88,11 +88,32 @@ def load_settings(path: Path | None = None) -> PetSettings:
     """Load settings from ``data/settings.json``, migrating the legacy file once."""
     target = path or config.USER_SETTINGS_PATH
     raw, migrated_from_legacy = _load_raw(target)
+
+    # Perform settings schema migration
+    schema_ver = raw.get("schema_version", 1)
+    migrated_schema = False
+
+    if schema_ver < config.SETTINGS_SCHEMA_VERSION:
+        # Migrate old default rates to new v0.5+ ultra low maintenance defaults
+        # Old values in v0.4 and early v0.5 draft:
+        old_hunger_defaults = {0.6, 0.05, 0.005}
+        old_energy_defaults = {0.45, 0.08, 0.01}
+
+        if "hunger_drift_rate" not in raw or raw.get("hunger_drift_rate") in old_hunger_defaults:
+            raw["hunger_drift_rate"] = config.HUNGER_DRIFT_RATE
+            migrated_schema = True
+        if "energy_drift_rate" not in raw or raw.get("energy_drift_rate") in old_energy_defaults:
+            raw["energy_drift_rate"] = config.ENERGY_DRIFT_RATE
+            migrated_schema = True
+
+        raw["schema_version"] = config.SETTINGS_SCHEMA_VERSION
+        migrated_schema = True
+
     settings = _from_raw(raw)
 
     # Persist a canonical data/settings.json on first run / after migration so the
     # user has a discoverable, editable file. Best-effort; failure is non-fatal.
-    if path is None and (not target.exists() or migrated_from_legacy):
+    if path is None and (not target.exists() or migrated_from_legacy or migrated_schema):
         settings.save(target)
 
     return settings

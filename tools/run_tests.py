@@ -184,10 +184,34 @@ def test_settings_defaults() -> None:
     check("settings: default sound disabled", defaults.sound_enabled is False)
     parsed_sound = _from_raw({"sound_enabled": True})
     check("settings: parses sound enabled", parsed_sound.sound_enabled is True)
-    check("settings: default hunger_drift_rate", defaults.hunger_drift_rate == 0.005)
+    check("settings: default hunger_drift_rate", defaults.hunger_drift_rate == 0.0005)
     parsed_drift = _from_raw({"hunger_drift_rate": 2.5, "energy_drift_rate": 999.0})
     check("settings: custom drift rate parsed", parsed_drift.hunger_drift_rate == 2.5)
-    check("settings: out-of-range drift rate corrected", parsed_drift.energy_drift_rate == 0.01)
+    check("settings: out-of-range drift rate corrected", parsed_drift.energy_drift_rate == 0.001)
+
+    # Test schema version migration from v1 to v2
+    import json
+    from chaos_pet.settings import load_settings
+    test_mig_path = config.DATA_DIR / "_test_settings_mig.json"
+    try:
+        # Create a v1 settings file with old defaults
+        v1_data = {
+            "schema_version": 1,
+            "hunger_drift_rate": 0.6,
+            "energy_drift_rate": 0.45,
+            "pet_name": "MigratedBongo"
+        }
+        with open(test_mig_path, "w", encoding="utf-8") as f:
+            json.dump(v1_data, f)
+        
+        migrated_settings = load_settings(test_mig_path)
+        check("migration: schema version bumped to 2", migrated_settings.schema_version == 2)
+        check("migration: hunger_drift_rate migrated to new default", migrated_settings.hunger_drift_rate == 0.0005)
+        check("migration: energy_drift_rate migrated to new default", migrated_settings.energy_drift_rate == 0.001)
+        check("migration: pet_name preserved", migrated_settings.pet_name == "MigratedBongo")
+    finally:
+        if test_mig_path.exists():
+            test_mig_path.unlink()
 
 
 def test_trust_drift() -> None:
