@@ -5,7 +5,7 @@ loads local 64×64 transparent PNG frames, scales them crisply with
 nearest-neighbor filtering, and shows the pet in a transparent, always-on-top
 PyQt6 window with moods, reactions, feeding, and local speech bubbles.
 
-**Status:** v0.7.0 · local-only · fully offline · no AI/network/telemetry.
+**Status:** v0.8.0 · local-only · fully offline · no AI/network/telemetry.
 
 The goal is a creature that feels *alive* — responsive and moody — entirely
 offline and deterministic. The weighted brain is deterministic game-AI-style
@@ -44,9 +44,11 @@ behavior scoring, not an AI/LLM/API system. The big picture and roadmap are in
 - Escalating left-clicks (1 happy/curious · 3 angry · 5 jump+knockback), banana feeding,
   right-click context menu, pause/resume, toggle size.
 - Local, offline **speech bubbles** (editable lines, disableable) and occasional mood alerts.
-- Sleep cycle (`yawn`→`sleep`→`wake`); project-local save/settings/logs.
+- Sleep cycle (`yawn`→`sleep`→`wake`); project-local save/settings/diary/logs.
+- Local diary memory in `data/diary.json`: daily feeds, clicks, rapid clicks,
+  drags, sleeps, wakes, ending stats, and a deterministic favorite-spot estimate.
 
-See [ROADMAP.md](ROADMAP.md) for the full feature history (v0.1 → v0.7) and what's next.
+See [ROADMAP.md](ROADMAP.md) for the full feature history (v0.1 → v0.8) and what's next.
 
 ## Setup
 
@@ -94,12 +96,13 @@ src/chaos_pet/
   animation.py             AnimationController + priority policy
   behavior.py              movement/idle/sleep + ClickTracker
   brain.py                 deterministic mood-weighted idle decision layer
+  diary.py                 project-local daily interaction memory
   facing.py                deterministic left/right facing tracker
   speech.py                local voice lines + bubble
   app.py                   PetWindow + run() (Qt + wiring)
 tools/                     validate_assets, smoke_test, run_tests, behavior_scenarios
 assets/monkey/<state>/     your real 64x64 PNG frames
-data/  logs/               created at runtime (save, settings, voice lines, sounds, log)
+data/  logs/               created at runtime (save, settings, diary, voice lines, sounds, log)
 ```
 
 Full module responsibilities and data flow: [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -128,6 +131,7 @@ All runtime data lives inside this project folder. Nothing is written elsewhere.
 - `data/save.json` — saved position, last animation state, mood stats, and identity.
   Written atomically (temp file then replace); a corrupt save logs a warning and
   falls back to defaults. *Delete it for a fresh start.*
+- `data/diary.json` — daily interaction summaries and favorite-spot estimate.
 - `data/voice_lines.json` — local speech lines you can edit (no AI/network).
 - `data/sounds/*.wav` — local synthetic sound effects generated on demand.
 - `logs/chaos_pet.log` — rotating log (startup/shutdown, asset validation, save/load,
@@ -199,7 +203,7 @@ No-window checks (offscreen Qt; no pytest needed):
 ```powershell
 python tools\validate_assets.py      # per-PNG 64x64 + alpha, and the mandatory 'idle' state
 python tools\smoke_test.py           # load settings + assets, check idle fallback, no window
-python tools\run_tests.py            # 78 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, facing, security
+python tools\run_tests.py            # 88 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, facing, diary, security
 python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 ```
 

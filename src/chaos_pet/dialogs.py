@@ -30,7 +30,7 @@ class PetStatusDialog(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
         self.setWindowTitle(f"Status - {parent.settings.pet_name}")
-        self.setFixedSize(320, 520)  # Increased height to prevent layout squishing
+        self.setFixedSize(340, 590)  # Fits stats plus the compact diary summary.
 
         # Style sheet for premium appearance
         self.setStyleSheet(
@@ -43,6 +43,12 @@ class PetStatusDialog(QDialog):
             " color: #d0d0d5;"
             " font-size: 11px;"
             " font-weight: bold;"
+            "}"
+            "QLabel#DiarySummary {"
+            " color: #f0f0f5;"
+            " font-size: 10px;"
+            " font-weight: normal;"
+            " line-height: 130%;"
             "}"
             "QLineEdit {"
             " background-color: #2e2e38;"
@@ -143,6 +149,13 @@ class PetStatusDialog(QDialog):
             layout.addWidget(lbl)
             layout.addWidget(bar)
 
+        diary_label = QLabel("TODAY'S MEMORY:", self)
+        self.diary_summary = QLabel("", self)
+        self.diary_summary.setObjectName("DiarySummary")
+        self.diary_summary.setWordWrap(True)
+        layout.addWidget(diary_label)
+        layout.addWidget(self.diary_summary)
+
         layout.addSpacing(5)  # Small visual spacing before the button
 
         # Bottom Close button
@@ -178,3 +191,4 @@ class PetStatusDialog(QDialog):
         for key, bar in self.bars.items():
             val = getattr(self.parent_win.stats, key)
             bar.setValue(max(0, min(100, int(val))))
+        self.diary_summary.setText(self.parent_win.diary.today_summary())

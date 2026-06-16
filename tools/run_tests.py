@@ -11,6 +11,7 @@ Run:  .venv/Scripts/python.exe tools/run_tests.py   (exit 0 = all pass)
 
 import os
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +33,7 @@ from chaos_pet.asset_loader import (
 )
 from chaos_pet.behavior import ClickTracker
 from chaos_pet.brain import BrainContext, WeightedBehaviorBrain
+from chaos_pet.diary import PetDiary
 from chaos_pet.facing import FacingTracker
 from chaos_pet.save import PetSave
 from chaos_pet.settings import PetSettings, _from_raw, _int_setting
@@ -238,6 +240,54 @@ def test_facing_tracker() -> None:
     check("facing: invalid jitter threshold falls back safely", bad_delta.min_delta_px == 2.0, str(bad_delta.min_delta_px))
 
 
+def test_diary() -> None:
+    day = "2026-06-16"
+    stats = PetStats(hunger=44.0, energy=88.0, happiness=91.0)
+    diary = PetDiary()
+
+    diary.record_feed(stats, day=day)
+    diary.record_click(rapid=False, stats=stats, day=day)
+    diary.record_click(rapid=True, stats=stats, day=day)
+    diary.record_drag(day=day)
+    diary.record_sleep(stats, day=day)
+    diary.record_wake(stats, day=day)
+    diary.record_position(100, 200, day=day)
+    diary.record_position(300, 400, day=day)
+    diary.record_ending_stats(stats, day=day)
+
+    entry = diary.entry_for(day)
+    check("diary: feed/click/rapid counters", (entry.feeds, entry.clicks, entry.rapid_clicks) == (1, 2, 1), str(entry))
+    check("diary: drag/sleep/wake counters", (entry.drags, entry.sleeps, entry.wakes) == (1, 1, 1), str(entry))
+    check("diary: favorite spot averages deterministically", entry.favorite_spot == (200, 300), str(entry.favorite_spot))
+    check("diary: ending stats snapshot saved", entry.ending_stats["hunger"] == 44.0, str(entry.ending_stats))
+    check("diary: summary includes counters", "Feeds 1" in diary.today_summary(day=day))
+
+    path = config.DATA_DIR / "_test_diary.json"
+    try:
+        check("diary: write ok", diary.write(path) is True)
+        loaded = PetDiary.load(path)
+        loaded_entry = loaded.entry_for(day)
+        check("diary: roundtrip preserves counters", loaded_entry.clicks == 2 and loaded_entry.rapid_clicks == 1)
+        check("diary: roundtrip preserves favorite spot", loaded_entry.favorite_spot == (200, 300), str(loaded_entry.favorite_spot))
+    finally:
+        if path.exists():
+            path.unlink()
+
+    old_diary = PetDiary()
+    for index in range(config.DIARY_HISTORY_DAYS + 3):
+        old_diary.record_drag(day=(date(2026, 1, 1) + timedelta(days=index)).isoformat())
+    check("diary: history pruning caps day count", len(old_diary.days) <= config.DIARY_HISTORY_DAYS, str(len(old_diary.days)))
+
+    bad_path = config.PROJECT_ROOT / "_bad_diary.json"
+    bad_preexisting = bad_path.exists()
+    try:
+        ok = diary.write(bad_path)
+        check("diary: project-root write refused", ok is False and bad_path.exists() is bad_preexisting)
+    finally:
+        if bad_path.exists() and not bad_preexisting:
+            bad_path.unlink()
+
+
 def test_save_roundtrip() -> None:
     path = config.DATA_DIR / "_test_save.json"
     try:
@@ -402,6 +452,7 @@ def main() -> int:
         test_feed_changes,
         test_weighted_brain,
         test_facing_tracker,
+        test_diary,
         test_save_roundtrip,
         test_corrupt_save_fallback,
         test_settings_defaults,

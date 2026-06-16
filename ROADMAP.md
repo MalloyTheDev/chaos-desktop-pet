@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Vision & Roadmap
 
-**Status: v0.7.0 · local-only · fully offline · no AI/network/telemetry**
+**Status: v0.8.0 · local-only · fully offline · no AI/network/telemetry**
 
 This document is the big picture: what the project is, the principle behind it,
 where it is now, and where it is going. For setup/usage see [README.md](README.md);
@@ -35,10 +35,10 @@ game-AI-style scoring, not an AI/LLM/API feature.
 
 ---
 
-## Where we are now (v0.7)
+## Where we are now (v0.8)
 
 The first offline feel-alive foundation is in place, including deterministic
-mood-weighted idle behavior and directional facing.
+mood-weighted idle behavior, directional facing, and local daily memory.
 
 | System | What works today |
 | --- | --- |
@@ -48,9 +48,10 @@ mood-weighted idle behavior and directional facing.
 | **Moods** | `PetStats` tracks hunger, energy, happiness, annoyance, curiosity, and trust; personality modulates drift and interaction effects |
 | **Weighted brain** | Pure `brain.py` scores idle choices from stats, personality, available animation states, attention timing, pause state, and temporary-animation state |
 | **Facing** | Pure `facing.py` tracks left/right direction from movement deltas and ignores tiny jitter |
+| **Diary** | `data/diary.json` stores daily feeds, clicks, rapid clicks, drags, sleeps, wakes, ending stats, and a deterministic favorite-spot estimate |
 | **Interaction** | Escalating left-clicks, right-click context menu, banana feeding, pause/resume, toggle size, status dialog |
 | **Speech** | Local offline voice lines in temporary click-through bubbles; personality-specific line pools are supported |
-| **Persistence** | Atomic project-local `data/save.json` + `data/settings.json`; rotating `logs/chaos_pet.log` |
+| **Persistence** | Atomic project-local `data/save.json`, `data/settings.json`, `data/diary.json`; rotating `logs/chaos_pet.log` |
 | **Sleep cycle** | `yawn` -> `sleep`, `wake` on attention; low energy nudges sleep sooner |
 | **Sound** | Synthetic local sound effects generated programmatically on startup; off by default and toggleable |
 
@@ -68,18 +69,11 @@ mood-weighted idle behavior and directional facing.
   and JSON/SFX writes now fail closed outside `data/` and `logs/`
 - **v0.7** — Directional sprite flip from movement delta, using runtime pixmap mirroring
   with no asset changes
+- **v0.8** — Local diary / deeper memory in `data/diary.json`, plus compact status-dialog summary
 
 ---
 
 ## Roadmap
-
-### v0.8 — Local Diary / Deeper Memory
-
-- Add project-local `data/diary.json` or equivalent.
-- Track daily interaction summaries: feeds, clicks, rapid clicks, drags, sleeps,
-  wakes, ending stats.
-- Add favorite spot / routine memory only if it stays deterministic and project-local.
-- Show summary in the status dialog later.
 
 ### v0.9 — Particle Overlays
 

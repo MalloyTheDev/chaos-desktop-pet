@@ -18,7 +18,7 @@ The application (everything under `src/chaos_pet/` and `tools/`) does **not**:
 
 ## What it does write (and where)
 
-As of v0.6.1 the app writes only inside the project folder's `data/` and
+As of v0.8 the app writes only inside the project folder's `data/` and
 `logs/` folders. JSON writes are **atomic** (temp file then `os.replace`, so a
 crash can't corrupt an existing file):
 
@@ -26,6 +26,7 @@ crash can't corrupt an existing file):
 | --- | --- |
 | `data/settings.json` | user settings (migrated once from legacy `./settings.json`) |
 | `data/save.json` | window position, last state, mood stats, pet identity |
+| `data/diary.json` | daily interaction summary, ending stats, favorite-spot estimate |
 | `data/voice_lines.json` | editable local speech lines |
 | `data/sounds/*.wav` | programmatically generated synthetic WAV sound files |
 | `logs/chaos_pet.log` | rotating log — startup/shutdown, asset validation, save/load, caught errors |

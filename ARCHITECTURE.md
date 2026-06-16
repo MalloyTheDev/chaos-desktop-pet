@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Architecture
 
-How the code fits together (v0.7). For the vision and roadmap see
+How the code fits together (v0.8). For the vision and roadmap see
 [ROADMAP.md](ROADMAP.md); for setup/usage see [README.md](README.md).
 
 ## Design shape
@@ -17,6 +17,7 @@ main.py
               ├─ AnimationController + StatePolicy   (animation.py)
               ├─ PetBehavior + ClickTracker          (behavior.py)
               ├─ WeightedBehaviorBrain                (brain.py)
+              ├─ PetDiary                              (diary.py)
               ├─ FacingTracker                        (facing.py)
               ├─ PetStats                             (stats.py)
               ├─ SpriteAssets                         (asset_loader.py)
@@ -37,6 +38,7 @@ main.py
 | `settings.py` | `PetSettings`: validated load, legacy `./settings.json` migration, atomic save | no | yes |
 | `save.py` | `PetSave`: position/state/stats/identity to `data/save.json` | no | yes |
 | `stats.py` | `PetStats`: 6-stat mood/needs model — drift + interaction effects (pure) | no | no |
+| `diary.py` | `PetDiary`: daily local memory counters, ending stats, favorite-spot estimate | no | yes |
 | `asset_loader.py` | `SpriteAssets`: discover/validate (64×64 + alpha)/natural-sort/cache; `require_idle` | Qt pixmaps | reads PNGs |
 | `animation.py` | `AnimationController` + `StatePolicy` priority/interrupt table | Qt pixmaps | no |
 | `behavior.py` | `PetBehavior` (follow/sleep/blink/idle/knockback) + `ClickTracker` (pure math) | minimal | no |
@@ -72,8 +74,8 @@ main.py
   right-click → context menu. Each interaction also nudges `PetStats`.
 - **Moods:** stats timer drifts the six stats and applies triggers
   (low energy → seek sleep; high annoyance → evasive `angry`).
-- **Persist:** autosave + quit → `PetSave.write()`; settings changes (toggle size,
-  speech) → `PetSettings.save()`.
+- **Persist:** autosave + quit → `PetSave.write()` and `PetDiary.write()`;
+  settings changes (toggle size, speech) → `PetSettings.save()`.
 
 ## The four "alive" systems
 
@@ -115,6 +117,7 @@ instead of unseeded randomness.
 ```
 data/settings.json     user settings (atomic; migrated once from ./settings.json)
 data/save.json         position, last state, stats, identity (atomic; corrupt → defaults)
+data/diary.json        daily feeds/clicks/drags/sleeps/wakes, ending stats, favorite spot
 data/voice_lines.json  editable local speech lines
 data/sounds/*.wav      generated synthetic sound effects
 logs/chaos_pet.log     rotating log (no private/system data)
@@ -131,6 +134,8 @@ subprocess, dynamic code execution, autostart, or telemetry anywhere in the app.
   `idle/feed/happy/angry/sleep/wake/click`).
 - **New mood rule** — add drift/trigger logic in `stats.py` (stays unit-testable).
 - **New idle decision** — add or tune candidate scoring in `brain.py`.
+- **New local memory event** — add a counter or deterministic summary field in
+  `diary.py`, then record it from the relevant app event.
 - **Directional-specific sprites later** — keep `facing.py` as the direction source;
   replace runtime mirroring only if separate left/right assets are introduced.
 - **New setting** — add a field to `PetSettings` + a validator in `settings.py`.
@@ -141,7 +146,7 @@ No window, no pytest dependency:
 
 - `tools/run_tests.py` — natural sort, asset fallback, mandatory-idle, animation
   one-shot/priority, click combos, stat decay, feed effects, save/load roundtrip,
-  corrupt-save fallback, settings defaults, weighted brain decisions, facing.
+  corrupt-save fallback, settings defaults, weighted brain decisions, facing, diary.
 - `tools/behavior_scenarios.py` — movement/animation scenarios (follow/run,
   knockback arc, sleep/wake, edge-clamp, sequencing).
 - `tools/smoke_test.py` — offscreen load + required-state check.

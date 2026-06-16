@@ -25,6 +25,7 @@ from .animation import AnimationController
 from .asset_loader import MissingIdleError, load_sprite_assets, require_idle
 from .behavior import ClickTracker, PetBehavior
 from .brain import BrainContext, BrainDecision, WeightedBehaviorBrain
+from .diary import PetDiary
 from .facing import FacingTracker
 from .save import PetSave
 from .settings import load_settings
@@ -72,6 +73,7 @@ class PetWindow(QWidget):
         # Persistent, project-local save (position, mood stats, identity).
         self.save_data = PetSave.load()
         self.stats = self.save_data.stats
+        self.diary = PetDiary.load()
 
         # Local, offline speech (no AI/network). Bubble exists only when enabled.
         self.voice_lines = VoiceLines.load()
@@ -224,6 +226,7 @@ class PetWindow(QWidget):
                     then=config.DEFAULT_STATE,
                     force=True,
                 )
+                self.diary.record_drag()
             elif not self._woke_on_press:
                 self._handle_click_combo(monotonic_ms())
 
@@ -241,6 +244,7 @@ class PetWindow(QWidget):
         count = self.click_tracker.register(now_ms)
         rapid = count >= 2
         self.stats.register_click(rapid=rapid, personality_id=self.settings.personality_id)
+        self.diary.record_click(rapid=rapid, stats=self.stats)
 
         if count >= config.CLICK_JUMP_COUNT:
             self._do_jump_knockback(now_ms)
@@ -300,6 +304,7 @@ class PetWindow(QWidget):
         self.behavior.notice(now)
         self._wake_from_sleep(now)
         self.stats.feed(self.settings.personality_id)
+        self.diary.record_feed(self.stats)
         self.sound_manager.play("munch")
         started = self._play_sequence_scaled(
             [("eat", config.EAT_DURATION_MS), ("happy", config.HAPPY_DURATION_MS)],
@@ -584,9 +589,8 @@ class PetWindow(QWidget):
         if self.stats.is_tired and not asleep and self.animation.state in {"idle", "sit"}:
             if not self._sleep_transition_started:
                 self._sleep_transition_started = True
-                if self._play_sequence_scaled([("yawn", config.YAWN_DURATION_MS)], now, then="sleep"):
-                    self._say("sleep")
-                    self.sound_manager.play("snore")
+                if not self._start_sleep_transition(now):
+                    self._sleep_transition_started = False
             return
 
         # High annoyance occasionally triggers an evasive angry flash.
@@ -606,6 +610,9 @@ class PetWindow(QWidget):
         self.save_data.pet_name = self.settings.pet_name
         self.save_data.personality_id = self.settings.personality_id
         self.save_data.write()
+        self.diary.record_position(self.x(), self.y())
+        self.diary.record_ending_stats(self.stats)
+        self.diary.write()
 
     def _pet_center(self) -> QPoint:
         return QPoint(self.x() + self.width() // 2, self.y() + self.height() // 2)
@@ -665,9 +672,8 @@ class PetWindow(QWidget):
         if not step.moving and self.behavior.should_sleep(now):
             if self.animation.state != "sleep" and not self._sleep_transition_started:
                 self._sleep_transition_started = True
-                if self._play_sequence_scaled([("yawn", config.YAWN_DURATION_MS)], now, then="sleep"):
-                    self._say("sleep")
-                    self.sound_manager.play("snore")
+                if not self._start_sleep_transition(now):
+                    self._sleep_transition_started = False
             else:
                 self.animation.set_state("sleep")
             return
@@ -736,12 +742,21 @@ class PetWindow(QWidget):
             self.move(step.position)
         return step
 
+    def _start_sleep_transition(self, now_ms: int) -> bool:
+        started = self._play_sequence_scaled([("yawn", config.YAWN_DURATION_MS)], now_ms, then="sleep")
+        if started:
+            self.diary.record_sleep(self.stats)
+            self._say("sleep")
+            self.sound_manager.play("snore")
+        return started
+
     def _wake_from_sleep(self, now_ms: int) -> bool:
         if self.animation.state != "sleep":
             return False
         self.behavior.notice(now_ms)
         self._sleep_transition_started = False
         self.stats.on_wake()
+        self.diary.record_wake(self.stats)
         if self._play_sequence_scaled([("wake", config.WAKE_DURATION_MS)], now_ms, then=config.DEFAULT_STATE):
             self._say("wake")
         return True

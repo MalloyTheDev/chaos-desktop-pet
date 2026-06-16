@@ -61,10 +61,13 @@ LEGACY_SETTINGS_PATH = SETTINGS_PATH  # original ./settings.json is still honore
 LOG_PATH = LOGS_DIR / "chaos_pet.log"
 VOICE_LINES_PATH = DATA_DIR / "voice_lines.json"
 SOUNDS_DIR = DATA_DIR / "sounds"
+DIARY_PATH = DATA_DIR / "diary.json"
 
 SAVE_SCHEMA_VERSION = 1
 SETTINGS_SCHEMA_VERSION = 2
+DIARY_SCHEMA_VERSION = 1
 AUTOSAVE_INTERVAL_MS = 30_000
+DIARY_HISTORY_DAYS = 90
 
 # Defaults for the expanded settings.
 DEFAULT_PET_NAME = "Bongo"

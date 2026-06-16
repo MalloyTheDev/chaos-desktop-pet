@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format is based on
 resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 [SECURITY.md](SECURITY.md).
 
+## [0.8.0] - 2026-06-16
+
+### Added
+- `diary.py`: project-local daily memory stored in `data/diary.json`.
+- Daily counters for feeds, clicks, rapid clicks, drags, sleeps, and wakes.
+- Ending stat snapshots for each diary day.
+- Deterministic favorite-spot estimate from saved pet positions.
+- Compact "today's memory" summary in the Pet Status dialog.
+
+### Changed
+- Autosave/quit now persists both `data/save.json` and `data/diary.json`.
+- Sleep and wake transitions now record diary events through the same behavior
+  paths that play `yawn`/`wake`.
+
+### Tests
+- Added diary tests for counters, rapid clicks, favorite-spot averaging,
+  roundtrip persistence, history pruning, and write-boundary refusal.
+
 ## [0.7.1] - 2026-06-16
 
 ### Fixed
