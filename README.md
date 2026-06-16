@@ -175,3 +175,7 @@ python tools\behavior_scenarios.py   # 19 movement/animation scenario tests
 - No installer or EXE packaging yet; no startup integration (by design)
 - `personality_id` / `debug_enabled` / `animation_speed_multiplier` are partial (see roadmap)
 - Movement is intentionally simple and may need tuning after playtesting
+
+## License
+
+[MIT](LICENSE) © MalloyTheDev.

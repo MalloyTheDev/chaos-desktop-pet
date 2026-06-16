@@ -35,16 +35,18 @@ execution, or telemetry. Asset/settings path-traversal guards
 | MEDIUM | Same unguarded `availableGeometry()` in `_clamp_to_screen` | `app.py` | ✅ v0.4 — None guard added |
 | MEDIUM | Follow path clamps to the **cursor's** screen, not the pet's → multi-monitor teleport/snap | `app.py` | ✅ v0.4 — clamp via `screenAt(self._pet_center())` |
 | MEDIUM | Knockback hop clamped to the cursor's screen mid-arc | `app.py` | ✅ v0.4 — same pet-screen clamp |
-| MEDIUM | Idle/paused pet returns an unclamped position → can be stranded off-screen after a monitor change | `behavior.py` | 🟡 v0.4 — startup re-clamps (`_restore_or_place`); no per-tick re-clamp while idle |
-| LOW | Context-menu `QMenu()` created without a parent | `app.py` | ✅ v0.4 — right-click menu is `QMenu(self)`; tray menu still unparented (⬜, no leak today) |
-| LOW | Knockback arc flattens against the top screen edge | `behavior.py` | ⬜ open (cosmetic) |
+| MEDIUM | Idle/paused pet returns an unclamped position → can be stranded off-screen after a monitor change | `behavior.py` | ✅ v0.4.1 — per-tick re-clamp onto the pet's screen recovers a displaced window (v0.4 re-clamped only at startup) |
+| LOW | Context-menu `QMenu()` created without a parent | `app.py` | ✅ v0.4.1 — both the right-click menu and the tray menu are now `QMenu(self)` |
+| LOW | Knockback arc flattens against the top screen edge | `behavior.py` | ✅ v0.4.1 — hop may rise up to one hop-height above the work-area top (`_clamp_hop`) |
 | LOW | Smoke test omitted `angry/eat/happy` → missing interaction art passed silently | `tools/smoke_test.py` | ✅ v0.4 — added (incl. `jump`) to `REQUIRED_STATES` |
 | LOW | Smoke test's "missing-state fallback frames" label was misleading | `tools/smoke_test.py` | ✅ v0.4 — relabeled |
-| INFO | Redundant double `set_state` to idle in the behavior tick | `app.py` | ⬜ open (dead code, harmless) |
+| INFO | Redundant double `set_state` to idle in the behavior tick | `app.py` | ✅ v0.4.1 — removed |
 | INFO | Settings out-of-root guard is effectively unreachable defensive code | `settings.py` | ♻️ retained (still defensive for the new `data/` path) |
 
-**Net for v0.4:** all HIGH and most MEDIUM/LOW findings fixed; 1 MEDIUM partially
-mitigated; 2 cosmetic/dead-code items left open and tracked above.
+**Net:** as of **v0.4.1**, every actionable finding from this audit is fixed
+(v0.4 closed all HIGH/MEDIUM crash + multi-monitor issues; v0.4.1 closed the
+remaining cosmetic/dead-code items). The only standing entries are informational
+"all-clear" confirmations.
 
 ### Live test evidence (2026-06-15 / 06-16)
 - `validate_assets.py`: 60/60 PNGs valid (15 states × 4 frames, 64×64 RGBA).

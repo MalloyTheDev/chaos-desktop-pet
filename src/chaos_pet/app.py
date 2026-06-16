@@ -372,7 +372,7 @@ class PetWindow(QWidget):
             LOGGER.warning("System tray is not available; use Esc to quit.")
             return
 
-        self.tray_menu = QMenu()
+        self.tray_menu = QMenu(self)
         self.visibility_action = QAction("Hide pet", self)
         self.visibility_action.triggered.connect(self._toggle_pet_visibility)
         self.tray_menu.addAction(self.visibility_action)
@@ -475,6 +475,13 @@ class PetWindow(QWidget):
             )
             return
 
+        # Recover a displaced window (e.g. a monitor was unplugged while the pet
+        # sat idle): re-clamp the current position onto the pet's screen even when
+        # it isn't actively moving.
+        recovered = self._clamp_to_screen(self.pos(), self._pet_center())
+        if recovered != self.pos():
+            self.move(recovered)
+
         allow_follow = allow_motion and self.animation.state != "sleep"
 
         step = self._apply_motion_step(
@@ -506,9 +513,6 @@ class PetWindow(QWidget):
             self._sleep_transition_started = False
             self.animation.set_state(step.motion_state)
             return
-
-        if self.animation.state == "sleep":
-            self.animation.set_state(config.DEFAULT_STATE)
 
         if self.animation.state != config.DEFAULT_STATE:
             self.animation.set_state(config.DEFAULT_STATE)

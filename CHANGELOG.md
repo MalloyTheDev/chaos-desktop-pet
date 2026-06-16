@@ -8,19 +8,25 @@ resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 
 ## [Unreleased]
 
-### Known issues (open audit items — see [AUDITS.md](AUDITS.md))
-- An idle pet is not re-clamped every tick if a monitor is unplugged while it
-  sits idle (startup re-clamps; active movement clamps to the pet's screen).
-- Knockback arc flattens against the very top screen edge (cosmetic).
-- Redundant double `set_state` to idle in the behavior tick (dead code).
-- Tray `QMenu` has no explicit parent (no leak today; the right-click context
-  menu was hardened with a parent).
-
 ### Planned
 - Wire `personality_id` to stat-drift rates and line selection.
 - `debug_enabled` → on-screen live stats overlay.
 - Apply `animation_speed_multiplier` to one-shot sequence durations.
 - v0.5: local sound effects (off by default).
+
+## [0.4.1] - 2026-06-16
+
+### Added
+- MIT `LICENSE`.
+
+### Fixed (closes the remaining open items from the 2026-06-15 audit — see [AUDITS.md](AUDITS.md))
+- An idle/displaced pet is now re-clamped onto its screen every tick, recovering a
+  window stranded off-screen after a monitor is unplugged.
+- Knockback arc no longer flattens at the top screen edge — the upward hop may
+  rise up to one hop-height above the work-area top.
+- Removed the redundant double `set_state(idle)` in the behavior tick (dead code).
+- Tray `QMenu` now has an explicit parent (ownership hardening), matching the
+  right-click context menu.
 
 ## [0.4.0] - 2026-06-16
 

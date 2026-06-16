@@ -82,7 +82,7 @@ class PetBehavior:
         if self._hop_origin is not None:
             next_position = self._step_hop()
             return BehaviorStep(
-                position=self._clamp_to_screen(next_position, pet_size, screen_rect),
+                position=self._clamp_hop(next_position, pet_size, screen_rect),
                 moving=True,
                 distance_to_cursor=self._distance_to_cursor(next_position, cursor, pet_size),
                 motion_state="fall",
@@ -182,6 +182,18 @@ class PetBehavior:
         max_y = screen_rect.bottom() - pet_size[1] + 1
         x = min(max(position.x(), screen_rect.left()), max_x)
         y = min(max(position.y(), screen_rect.top()), max_y)
+        return QPoint(round(x), round(y))
+
+    @staticmethod
+    def _clamp_hop(position: QPointF, pet_size: tuple[int, int], screen_rect: QRect) -> QPoint:
+        # Like _clamp_to_screen, but lets the upward hop arc rise up to one hop
+        # height above the work-area top, so a knockback near the top edge still
+        # shows an arc instead of a flat slide.
+        max_x = screen_rect.right() - pet_size[0] + 1
+        max_y = screen_rect.bottom() - pet_size[1] + 1
+        min_y = screen_rect.top() - config.KNOCKBACK_HOP_HEIGHT_PX
+        x = min(max(position.x(), screen_rect.left()), max_x)
+        y = min(max(position.y(), min_y), max_y)
         return QPoint(round(x), round(y))
 
 
