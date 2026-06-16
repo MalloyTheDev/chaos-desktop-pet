@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format is based on
 resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 [SECURITY.md](SECURITY.md).
 
+## [0.7.1] - 2026-06-16
+
+### Fixed
+- Hardened `FacingTracker` against invalid or non-finite jitter thresholds.
+- Hardened private WAV generation so a missing generator function writes safe
+  silence in `data/sounds/` instead of raising.
+
+### Tests
+- Added coverage for invalid facing jitter thresholds and safe-silence SFX
+  generation.
+
 ## [0.7.0] - 2026-06-16
 
 ### Added

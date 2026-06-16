@@ -9,6 +9,30 @@ Status legend: ✅ fixed · 🟡 partially addressed · ⬜ open · ♻️ stand
 
 ---
 
+## 2026-06-16 — v0.7.1 Focused Bug/Security/Polish Audit
+
+**Method.** Focused review of current `feature/v0.7-directional-sprite-flip`
+branch after v0.7: searched for forbidden capabilities, runtime write sinks,
+path guards, broad exception handling, movement/facing edge cases, and test
+cleanup behavior.
+**Result:** 2 low-risk hardening findings resolved; no high/medium security
+findings found.
+
+### Findings
+
+| Severity | Finding | File | Status |
+| --- | --- | --- | --- |
+| LOW | `FacingTracker(min_delta_px=...)` could raise if a future caller passed a non-numeric or non-finite jitter threshold. | `facing.py` | ✅ Hardened — invalid thresholds now fall back to `2.0`. |
+| LOW | Private `_generate_wav(..., func=None)` could raise if miscalled without a generator function. | `sfx.py` | ✅ Hardened — missing generator writes safe silence under `data/sounds/`. |
+
+### Live test evidence (2026-06-16)
+- `validate_assets.py`: 60 valid, 0 invalid.
+- `smoke_test.py`: passed; all expected animation states load.
+- `run_tests.py`: 78/78 passed.
+- `behavior_scenarios.py`: 24/24 passed.
+
+---
+
 ## 2026-06-16 — v0.6.1 Runtime Write Boundary Audit
 
 **Method.** Focused review of runtime writes, path guards, SFX generation,

@@ -199,7 +199,7 @@ No-window checks (offscreen Qt; no pytest needed):
 ```powershell
 python tools\validate_assets.py      # per-PNG 64x64 + alpha, and the mandatory 'idle' state
 python tools\smoke_test.py           # load settings + assets, check idle fallback, no window
-python tools\run_tests.py            # 76 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, facing, security
+python tools\run_tests.py            # 78 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, facing, security
 python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 ```
 

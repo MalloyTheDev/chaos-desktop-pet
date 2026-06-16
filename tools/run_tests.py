@@ -234,6 +234,9 @@ def test_facing_tracker() -> None:
     invalid = FacingTracker(facing="sideways")
     check("facing: invalid initial value falls back safely", invalid.facing == "right", invalid.facing)
 
+    bad_delta = FacingTracker(min_delta_px="not-a-number")
+    check("facing: invalid jitter threshold falls back safely", bad_delta.min_delta_px == 2.0, str(bad_delta.min_delta_px))
+
 
 def test_save_roundtrip() -> None:
     path = config.DATA_DIR / "_test_save.json"
@@ -329,11 +332,15 @@ def test_security_guards() -> None:
     check("security: data path accepted for runtime writes", is_runtime_write_path(ok_path) is True)
 
     root_write_path = config.PROJECT_ROOT / "_test_forbidden_runtime_write.json"
+    root_write_preexisting = root_write_path.exists()
     try:
         root_write_ok = write_json_atomic(root_write_path, {"blocked": True})
-        check("security: project-root JSON write refused", root_write_ok is False and not root_write_path.exists())
+        check(
+            "security: project-root JSON write refused",
+            root_write_ok is False and root_write_path.exists() is root_write_preexisting,
+        )
     finally:
-        if root_write_path.exists():
+        if root_write_path.exists() and not root_write_preexisting:
             root_write_path.unlink()
 
     bad_path = Path("C:/Windows/System32/cmd.exe") if os.name == "nt" else Path("/etc/passwd")
@@ -358,14 +365,28 @@ def test_security_guards() -> None:
     check("security: bad sfx path write refused", not bad_sfx_path.exists())
 
     project_bad_sfx_path = config.PROJECT_ROOT / "_bad_sfx.wav"
+    project_bad_sfx_preexisting = project_bad_sfx_path.exists()
     try:
         _generate_wav(project_bad_sfx_path, 0.1, func=lambda t, d: 0.0)
-        check("security: project-root sfx write refused", not project_bad_sfx_path.exists())
+        check(
+            "security: project-root sfx write refused",
+            project_bad_sfx_path.exists() is project_bad_sfx_preexisting,
+        )
     finally:
-        if project_bad_sfx_path.exists():
+        if project_bad_sfx_path.exists() and not project_bad_sfx_preexisting:
             project_bad_sfx_path.unlink()
 
     check("security: generated sounds stay under data", is_runtime_write_path(config.SOUNDS_DIR / "squeak.wav"))
+
+    silent_sfx_path = config.SOUNDS_DIR / "_test_silence.wav"
+    try:
+        if silent_sfx_path.exists():
+            silent_sfx_path.unlink()
+        _generate_wav(silent_sfx_path, 0.01)
+        check("security: missing sfx generator writes safe silence in data", silent_sfx_path.exists())
+    finally:
+        if silent_sfx_path.exists():
+            silent_sfx_path.unlink()
 
 
 def main() -> int:

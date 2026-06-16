@@ -20,6 +20,9 @@ def _generate_wav(path: Path, duration: float, sample_rate: int = 22050, func=No
     if not is_runtime_write_path(path):
         LOGGER.warning("Refusing to generate sound outside data/logs runtime roots: %s", path)
         return
+    if func is None:
+        LOGGER.warning("No sound generator provided for %s; writing silence.", path)
+        func = lambda _t, _duration: 0.0
     num_samples = int(duration * sample_rate)
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
