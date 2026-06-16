@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import config
-from .persistence import read_json, write_json_atomic
+from .persistence import is_project_local, read_json, write_json_atomic
 
 LOGGER = logging.getLogger(__name__)
 VALID_STARTING_CORNERS = {"top_left", "top_right", "bottom_left", "bottom_right", "center"}
@@ -34,8 +34,12 @@ class PetSettings:
     personality_id: str = config.DEFAULT_PERSONALITY_ID
     speech_enabled: bool = config.SPEECH_ENABLED
     debug_enabled: bool = config.DEBUG_ENABLED
+    sound_enabled: bool = config.SOUND_ENABLED
     movement_speed_multiplier: float = config.MOVEMENT_SPEED_MULTIPLIER
     animation_speed_multiplier: float = config.ANIMATION_SPEED_MULTIPLIER
+    hunger_drift_rate: float = config.HUNGER_DRIFT_RATE
+    energy_drift_rate: float = config.ENERGY_DRIFT_RATE
+    annoyance_decay_rate: float = config.ANNOYANCE_DECAY_RATE
 
     # Backward-compatible alias: older code asks for ``sprite_scale``.
     @property
@@ -57,8 +61,12 @@ class PetSettings:
             "personality_id": self.personality_id,
             "speech_enabled": self.speech_enabled,
             "debug_enabled": self.debug_enabled,
+            "sound_enabled": self.sound_enabled,
             "movement_speed_multiplier": self.movement_speed_multiplier,
             "animation_speed_multiplier": self.animation_speed_multiplier,
+            "hunger_drift_rate": self.hunger_drift_rate,
+            "energy_drift_rate": self.energy_drift_rate,
+            "annoyance_decay_rate": self.annoyance_decay_rate,
             "walk_speed_px": self.walk_speed_px,
             "sleep_after_ms": self.sleep_after_ms,
             "starting_corner": self.starting_corner,
@@ -67,7 +75,7 @@ class PetSettings:
         }
 
     def save(self, path: Path = config.USER_SETTINGS_PATH) -> bool:
-        if not _is_project_local(path):
+        if not is_project_local(path):
             LOGGER.warning("Refusing to write settings outside project: %s", path)
             return False
         ok = write_json_atomic(path, self.to_dict())
@@ -94,7 +102,7 @@ def load_settings(path: Path | None = None) -> PetSettings:
 # Loading helpers
 # --------------------------------------------------------------------------- #
 def _load_raw(target: Path) -> tuple[dict[str, Any], bool]:
-    if not _is_project_local(target):
+    if not is_project_local(target):
         LOGGER.warning("Refusing to read settings outside project root: %s. Using defaults.", target)
         return {}, False
 
@@ -127,12 +135,16 @@ def _from_raw(raw: dict[str, Any]) -> PetSettings:
         personality_id=_str_setting(raw, "personality_id", config.DEFAULT_PERSONALITY_ID),
         speech_enabled=_bool_setting(raw, "speech_enabled", config.SPEECH_ENABLED),
         debug_enabled=_bool_setting(raw, "debug_enabled", config.DEBUG_ENABLED),
+        sound_enabled=_bool_setting(raw, "sound_enabled", config.SOUND_ENABLED),
         movement_speed_multiplier=_float_setting(
             raw, "movement_speed_multiplier", config.MOVEMENT_SPEED_MULTIPLIER, 0.1, 5.0
         ),
         animation_speed_multiplier=_float_setting(
             raw, "animation_speed_multiplier", config.ANIMATION_SPEED_MULTIPLIER, 0.1, 5.0
         ),
+        hunger_drift_rate=_float_setting(raw, "hunger_drift_rate", config.HUNGER_DRIFT_RATE, 0.0, 10.0),
+        energy_drift_rate=_float_setting(raw, "energy_drift_rate", config.ENERGY_DRIFT_RATE, 0.0, 10.0),
+        annoyance_decay_rate=_float_setting(raw, "annoyance_decay_rate", config.ANNOYANCE_DECAY_RATE, 0.0, 20.0),
     )
 
 
@@ -195,9 +207,4 @@ def _corner_setting(raw: dict[str, Any], key: str, default: str) -> str:
     return default
 
 
-def _is_project_local(path: Path) -> bool:
-    try:
-        path.resolve().relative_to(config.PROJECT_ROOT.resolve())
-    except ValueError:
-        return False
-    return True
+

@@ -9,6 +9,29 @@ Status legend: ✅ fixed · 🟡 partially addressed · ⬜ open · ♻️ stand
 
 ---
 
+## 2026-06-16 — Security Hardening, Bug Fix & Feature Audit
+
+**Method.** Full review of file access vectors, path traversal guards, multi-monitor coordinates clamping, programmatic WAV wave generator outputs, and new Pet Status QDialog / customizable drift settings. Verified via automated unit/behavior test extensions.
+**Result:** 6 findings resolved.
+
+### Findings
+
+| Severity | Finding | File | Status |
+| --- | --- | --- | --- |
+| HIGH | `SpeechBubble` `max(0, y)` clamps to vertical coordinate 0 on secondary monitors with negative coordinate boundaries. | `speech.py` | ✅ Fixed — Clamps position using `QApplication.screenAt(anchor.center())` against `availableGeometry()`. |
+| MEDIUM | File descriptor leak in `write_json_atomic` if `os.fdopen` raises an exception during initialization. | `persistence.py` | ✅ Hardened — Wrapped `os.fdopen` creation in a `try...except` block, ensuring `os.close(fd)` runs on failure. |
+| MEDIUM | Lack of project-local path checks in `PetSave` and `VoiceLines` could allow out-of-root reads/writes. | `save.py`, `speech.py` | ✅ Hardened — Integrated `is_project_local` checks to block out-of-root operations and return defaults. |
+| INFO | Programmatic sound effects missing from assets. | `sfx.py`, `app.py` | ✅ Added — Programmatically generates 16-bit 22kHz WAV sound files on startup (click squeak, feed munch, sleep snore, jump boing) so git repo size is kept small and offline asset integrity is guaranteed. |
+| INFO | Pet lacks animations/behavior during click dragging and drop release. | `app.py` | ✅ Added — Integrated `fall` sprite loop during drag, custom drop `land` sequence on release, and transient `drag` speech lines. |
+| INFO | Needs drift rates are hardcoded and stats are not easily viewable or editable in-app. | `dialogs.py`, `settings.py`, `stats.py` | ✅ Added — Custom Needs settings rates (`hunger_drift_rate`, `energy_drift_rate`, `annoyance_decay_rate`) and a beautiful QSS-styled Pet Status dialog showing stats in real-time and allowing instant name/personality updates. |
+
+### Live test evidence (2026-06-16)
+- Extended unit tests in `run_tests.py` (50/50 passed).
+- Extended behavior scenarios in `behavior_scenarios.py` (24/24 passed).
+- Checked that synthetic WAVs generate successfully on startup.
+
+---
+
 ## 2026-06-15 — Multi-agent code audit (v0.3 baseline)
 
 **Method.** Four independent auditors (safety/system-impact, Qt-correctness,

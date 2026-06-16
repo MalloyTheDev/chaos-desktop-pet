@@ -6,13 +6,26 @@ All notable changes to this project are documented here. Format is based on
 resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 [SECURITY.md](SECURITY.md).
 
-## [Unreleased]
+## [0.5.0] - 2026-06-16
 
-### Planned
-- Wire `personality_id` to stat-drift rates and line selection.
-- `debug_enabled` → on-screen live stats overlay.
-- Apply `animation_speed_multiplier` to one-shot sequence durations.
-- v0.5: local sound effects (off by default).
+### Added
+- **Sound Effects (v0.5)**: Synthetic local SFX (click squeak, feed munch, sleep snore, jump boing) programmatically generated on startup and managed via `QMediaPlayer` + `QAudioOutput`. Off by default, toggleable in settings and menus.
+- **Memory & Loyalty Behavior**: Trust stat modulates follow speeds and stop distances (high trust -> stays closer/faster; low trust -> keeps distance/moves slower).
+- **Trust Drift**: Trust slowly normalizes over time, with a penalty that makes the pet slower to forgive when trust is very low.
+- **Interactive Drag Animations**: The pet enters the `fall` sprite loop when dragged and executes a `land` cushioning animation on release.
+- **Pet Status Dialog**: Premium dark-themed status dashboard dialog displaying Needs progress bars (with orange-to-pink linear gradients), editable name textbox, and personality dropdown that syncs settings in real-time.
+- **Customizable Needs Rates**: Settings fields (`hunger_drift_rate`, `energy_drift_rate`, `annoyance_decay_rate`) to customize Needs drift behavior.
+- **Mood Alert Speeches**: Awake pets complain occasionally if Hunger (>= 75) or Energy (<= 15) metrics cross critical thresholds.
+
+### Changed
+- Wired `personality_id` to modulate stat drift rates and voice line selection.
+- Applied `animation_speed_multiplier` to scale one-shot sequence durations.
+- Integrated `debug_enabled` live stats overlay to track real-time stats.
+
+### Fixed
+- **HIGH** - Clamped speech bubble position using the pet's current monitor geometry, resolving alignment displacement on multi-monitor setups with negative coordinates.
+- **MEDIUM** - Hardened `write_json_atomic` to prevent file descriptor leaks if wrapping fails.
+- **MEDIUM** - Enforced project-local path guards in `PetSave` load/write and `VoiceLines` load to prevent out-of-root directory traversal.
 
 ## [0.4.1] - 2026-06-16
 

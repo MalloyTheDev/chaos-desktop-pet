@@ -28,46 +28,82 @@ class PetStats:
     trust: float = 50.0
 
     # --- time-based drift -------------------------------------------------
-    def update(self, dt_s: float, *, asleep: bool = False) -> None:
+    def update(
+        self,
+        dt_s: float,
+        *,
+        asleep: bool = False,
+        personality_id: str = "playful",
+        hunger_rate: float = 0.6,
+        energy_rate: float = 0.45,
+        annoyance_decay: float = 4.0,
+    ) -> None:
         """Advance stats by *dt_s* seconds. Sleeping recovers energy & calms."""
         if dt_s <= 0:
             return
+
+        # Personality modifiers
+        curiosity_mult = 1.5 if personality_id == "playful" else 1.0
+        annoyance_decay_mult = 1.2 if personality_id == "playful" else (0.5 if personality_id == "grumpy" else 1.0)
+        energy_decay_mult = 1.5 if personality_id == "lazy" else 1.0
+        hunger_rise_mult = 1.2 if personality_id == "lazy" else 1.0
+
         # Hunger slowly rises.
-        self.hunger = clamp(self.hunger + 0.6 * dt_s)
+        self.hunger = clamp(self.hunger + hunger_rate * dt_s * hunger_rise_mult)
         # Energy falls while awake, recovers while asleep.
         if asleep:
             self.energy = clamp(self.energy + 2.5 * dt_s)
         else:
-            self.energy = clamp(self.energy - 0.45 * dt_s)
+            self.energy = clamp(self.energy - energy_rate * dt_s * energy_decay_mult)
         # Happiness normalizes toward neutral (50).
         self.happiness = clamp(self.happiness + (50.0 - self.happiness) * 0.03 * dt_s)
         # Annoyance decays.
-        self.annoyance = clamp(self.annoyance - 4.0 * dt_s)
+        self.annoyance = clamp(self.annoyance - annoyance_decay * dt_s * annoyance_decay_mult)
         # Curiosity drifts gently back toward neutral.
-        self.curiosity = clamp(self.curiosity + (50.0 - self.curiosity) * 0.02 * dt_s)
+        self.curiosity = clamp(self.curiosity + (50.0 - self.curiosity) * 0.02 * dt_s * curiosity_mult)
         # Being very hungry slowly erodes happiness.
         if self.hunger >= 80.0:
             self.happiness = clamp(self.happiness - 0.5 * dt_s)
 
+        # Trust slowly normalizes toward 50.0.
+        if self.trust < 50.0:
+            # Slower to forgive if trust is very low.
+            forgive_rate = 0.015 if self.trust < 30.0 else 0.05
+            self.trust = clamp(self.trust + forgive_rate * dt_s)
+        elif self.trust > 50.0:
+            self.trust = clamp(self.trust - 0.02 * dt_s)
+
     # --- interactions -----------------------------------------------------
-    def feed(self) -> None:
+    def feed(self, personality_id: str = "playful") -> None:
+        trust_boost = 7.5 if personality_id == "affectionate" else 5.0
+        happy_boost = 30.0 if personality_id == "affectionate" else 20.0
+        
         self.hunger = clamp(self.hunger - 30.0)
-        self.happiness = clamp(self.happiness + 20.0)
-        self.trust = clamp(self.trust + 5.0)
+        self.happiness = clamp(self.happiness + happy_boost)
+        self.trust = clamp(self.trust + trust_boost)
         self.annoyance = clamp(self.annoyance - 12.0)
         self.energy = clamp(self.energy + 5.0)
 
-    def register_click(self, *, rapid: bool) -> None:
+    def register_click(self, *, rapid: bool, personality_id: str = "playful") -> None:
         """A single friendly click vs. a rapid (spam) click."""
         self.curiosity = clamp(self.curiosity + 4.0)
+        
+        grumpy = (personality_id == "grumpy")
+        affectionate = (personality_id == "affectionate")
+        
         if rapid:
-            self.annoyance = clamp(self.annoyance + 16.0)
+            annoy_inc = 24.0 if grumpy else 16.0
+            self.annoyance = clamp(self.annoyance + annoy_inc)
             self.trust = clamp(self.trust - 2.0)
             self.happiness = clamp(self.happiness - 3.0)
         else:
-            self.happiness = clamp(self.happiness + 5.0)
-            self.trust = clamp(self.trust + 1.0)
-            self.annoyance = clamp(self.annoyance + 3.0)
+            happy_inc = 7.5 if affectionate else 5.0
+            trust_inc = 1.5 if affectionate else 1.0
+            annoy_inc = 4.5 if grumpy else 3.0
+            
+            self.happiness = clamp(self.happiness + happy_inc)
+            self.trust = clamp(self.trust + trust_inc)
+            self.annoyance = clamp(self.annoyance + annoy_inc)
 
     def on_wake(self) -> None:
         # Energy was recovered while asleep; waking is mildly pleasant.

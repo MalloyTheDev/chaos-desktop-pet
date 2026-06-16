@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import config
-from .persistence import read_json, write_json_atomic
+from .persistence import is_project_local, read_json, write_json_atomic
 from .stats import PetStats
 
 LOGGER = logging.getLogger(__name__)
@@ -66,11 +66,17 @@ class PetSave:
 
     @classmethod
     def load(cls, path: Path = config.SAVE_PATH) -> "PetSave":
+        if not is_project_local(path):
+            LOGGER.warning("Refusing to load save outside project root: %s. Using defaults.", path)
+            return cls()
         save = cls.from_dict(read_json(path, {}))
         LOGGER.info("Loaded save from %s (stats=%s)", path, save.stats.to_dict())
         return save
 
     def write(self, path: Path = config.SAVE_PATH) -> bool:
+        if not is_project_local(path):
+            LOGGER.warning("Refusing to write save outside project root: %s", path)
+            return False
         self.last_saved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         ok = write_json_atomic(path, self.to_dict())
         if ok:

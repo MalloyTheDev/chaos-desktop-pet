@@ -16,7 +16,18 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from . import config
+
 LOGGER = logging.getLogger(__name__)
+
+
+def is_project_local(path: Path) -> bool:
+    """Check if the given path is strictly within the project's root directory."""
+    try:
+        path.resolve().relative_to(config.PROJECT_ROOT.resolve())
+    except ValueError:
+        return False
+    return True
 
 
 def read_json(path: Path, default: Any) -> Any:
@@ -44,7 +55,13 @@ def write_json_atomic(path: Path, data: Any) -> bool:
         fd, tmp_name = tempfile.mkstemp(
             dir=str(path.parent), prefix=path.name + ".", suffix=".tmp"
         )
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        try:
+            handle = os.fdopen(fd, "w", encoding="utf-8")
+        except Exception:
+            os.close(fd)
+            raise
+
+        with handle:
             json.dump(data, handle, indent=2)
             handle.flush()
             os.fsync(handle.fileno())

@@ -112,6 +112,17 @@ def test_stat_decay() -> None:
     check("stats: hunger rises over time", s.hunger > 10.0, str(s.hunger))
     check("stats: energy falls while awake", s.energy < 50.0, str(s.energy))
     check("stats: annoyance decays", s.annoyance < 40.0, str(s.annoyance))
+
+    # Test custom rates
+    s_default_2 = PetStats(hunger=10.0, energy=50.0, annoyance=40.0)
+    s_default_2.update(2.0)
+
+    s_custom = PetStats(hunger=10.0, energy=50.0, annoyance=40.0)
+    s_custom.update(2.0, hunger_rate=2.0, energy_rate=1.5, annoyance_decay=10.0)
+    check("stats: custom hunger rate scales hunger rise", s_custom.hunger > s_default_2.hunger, f"custom={s_custom.hunger} default={s_default_2.hunger}")
+    check("stats: custom energy rate scales energy decay", s_custom.energy < s_default_2.energy, f"custom={s_custom.energy} default={s_default_2.energy}")
+    check("stats: custom annoyance decay scales decay", s_custom.annoyance < s_default_2.annoyance, f"custom={s_custom.annoyance} default={s_default_2.annoyance}")
+
     s2 = PetStats(energy=10.0)
     s2.update(5.0, asleep=True)
     check("stats: energy recovers while asleep", s2.energy > 10.0, str(s2.energy))
@@ -164,6 +175,52 @@ def test_settings_defaults() -> None:
     check("settings: rejects bool-as-int", _int_setting({"scale": True}, "scale", 2, 1, 8) == 2)
     parsed = _from_raw({"scale": 4, "speech_enabled": "nope", "pet_name": "  Kong  "})
     check("settings: parses good + corrects bad", parsed.scale == 4 and parsed.speech_enabled is True and parsed.pet_name == "Kong", str(parsed))
+    check("settings: default sound disabled", defaults.sound_enabled is False)
+    parsed_sound = _from_raw({"sound_enabled": True})
+    check("settings: parses sound enabled", parsed_sound.sound_enabled is True)
+    check("settings: default hunger_drift_rate", defaults.hunger_drift_rate == 0.6)
+    parsed_drift = _from_raw({"hunger_drift_rate": 2.5, "energy_drift_rate": 999.0})
+    check("settings: custom drift rate parsed", parsed_drift.hunger_drift_rate == 2.5)
+    check("settings: out-of-range drift rate corrected", parsed_drift.energy_drift_rate == 0.45)
+
+
+def test_trust_drift() -> None:
+    # Drift toward 50.0
+    s_low = PetStats(trust=40.0)
+    s_low.update(10.0)
+    check("trust: low trust recovers", s_low.trust > 40.0, str(s_low.trust))
+
+    s_vlow = PetStats(trust=10.0)
+    s_vlow.update(10.0)
+    # Slower to forgive: rate 0.015/s vs 0.05/s
+    check("trust: low-trust recovers slower", (s_vlow.trust - 10.0) < (s_low.trust - 40.0))
+
+    s_high = PetStats(trust=80.0)
+    s_high.update(10.0)
+    check("trust: high trust decays", s_high.trust < 80.0, str(s_high.trust))
+
+
+def test_security_guards() -> None:
+    from chaos_pet.persistence import is_project_local
+    from chaos_pet.speech import VoiceLines
+
+    ok_path = config.PROJECT_ROOT / "data" / "save.json"
+    check("security: local path accepted", is_project_local(ok_path) is True)
+
+    bad_path = Path("C:/Windows/System32/cmd.exe") if os.name == "nt" else Path("/etc/passwd")
+    check("security: out-of-root path refused", is_project_local(bad_path) is False)
+
+    bad_save = PetSave.load(bad_path)
+    check("security: bad save path fallback to defaults", bad_save.position is None)
+
+    bad_save_write = PetSave().write(bad_path)
+    check("security: bad save path write refused", bad_save_write is False)
+
+    bad_settings_save = PetSettings().save(bad_path)
+    check("security: bad settings path write refused", bad_settings_save is False)
+
+    bad_voice_lines = VoiceLines.load(bad_path)
+    check("security: bad voice lines path fallback to default", bad_voice_lines.get("click") is not None)
 
 
 def main() -> int:
@@ -180,6 +237,8 @@ def main() -> int:
         test_save_roundtrip,
         test_corrupt_save_fallback,
         test_settings_defaults,
+        test_trust_drift,
+        test_security_guards,
     ):
         test()
 

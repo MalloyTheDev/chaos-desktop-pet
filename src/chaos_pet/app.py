@@ -16,6 +16,7 @@ from .asset_loader import MissingIdleError, load_sprite_assets, require_idle
 from .behavior import ClickTracker, PetBehavior
 from .save import PetSave
 from .settings import load_settings
+from .sfx import SoundManager, check_and_generate_sounds
 from .speech import SpeechBubble, VoiceLines
 
 
@@ -61,7 +62,11 @@ class PetWindow(QWidget):
         self.voice_lines = VoiceLines.load()
         self.speech_bubble = SpeechBubble() if self.settings.speech_enabled else None
 
+        # Sound effects manager.
+        self.sound_manager = SoundManager(self, enabled=self.settings.sound_enabled)
+
         self.click_tracker = ClickTracker()
+        self._status_dialog = None
 
         self.setWindowTitle("Chaos Desktop Pet")
         self.setWindowFlags(
@@ -82,6 +87,21 @@ class PetWindow(QWidget):
         self.label.setFixedSize(*self.pet_size)
         self.label.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.debug_label = QLabel(self)
+        self.debug_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.debug_label.setStyleSheet(
+            "QLabel {"
+            " background: rgba(0, 0, 0, 160);"
+            " color: #ffffff;"
+            " padding: 4px;"
+            " font-family: monospace;"
+            " font-size: 10px;"
+            " border-radius: 4px;"
+            "}"
+        )
+        self.debug_label.setVisible(self.settings.debug_enabled)
+        self.debug_label.move(4, 4)
 
         self.assets = load_sprite_assets(target_size=self.pet_size)
         require_idle(self.assets)  # fail clearly if the mandatory idle state is missing
@@ -161,9 +181,13 @@ class PetWindow(QWidget):
             current_global = event.globalPosition().toPoint()
             delta = current_global - self._drag_start_global
             if self._dragging or delta.manhattanLength() >= config.DRAG_START_DISTANCE_PX:
+                just_started = not self._dragging
                 self._dragging = True
                 self.behavior.notice(monotonic_ms())
                 self.behavior.cancel_motion()
+                if just_started:
+                    self.animation.set_state("fall")
+                    self._say("drag", force=True)
                 target = self._drag_start_window + delta
                 self.move(self._clamp_to_screen(target, current_global))
             event.accept()
@@ -173,7 +197,14 @@ class PetWindow(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            if not self._dragging and not self._woke_on_press:
+            if self._dragging:
+                self._play_sequence_scaled(
+                    [("land", config.LAND_DURATION_MS)],
+                    monotonic_ms(),
+                    then=config.DEFAULT_STATE,
+                    force=True,
+                )
+            elif not self._woke_on_press:
                 self._handle_click_combo(monotonic_ms())
 
             self._drag_start_global = None
@@ -189,7 +220,7 @@ class PetWindow(QWidget):
         """Escalating left-click reaction: 1 = happy/curious, 3 = angry, 5 = jump."""
         count = self.click_tracker.register(now_ms)
         rapid = count >= 2
-        self.stats.register_click(rapid=rapid)
+        self.stats.register_click(rapid=rapid, personality_id=self.settings.personality_id)
 
         if count >= config.CLICK_JUMP_COUNT:
             self._do_jump_knockback(now_ms)
@@ -201,8 +232,10 @@ class PetWindow(QWidget):
         elif count == 1:
             self._do_happy_or_curious(now_ms)
             self._say("click")
+            self.sound_manager.play("squeak")
         else:
             self._say("click")
+            self.sound_manager.play("squeak")
 
     def _begin_knockback_from_cursor(self) -> None:
         if self.movement_paused:
@@ -213,7 +246,8 @@ class PetWindow(QWidget):
 
     def _do_angry(self, now_ms: int) -> None:
         self._begin_knockback_from_cursor()
-        self.animation.play_sequence(
+        self.sound_manager.play("boing")
+        self._play_sequence_scaled(
             [
                 ("angry", config.ANGRY_BUMP_DURATION_MS),
                 ("fall", config.FALL_DURATION_MS),
@@ -225,8 +259,9 @@ class PetWindow(QWidget):
 
     def _do_jump_knockback(self, now_ms: int) -> None:
         self._begin_knockback_from_cursor()
+        self.sound_manager.play("boing")
         # jump outranks angry, so a 5-click escalation interrupts an in-progress angry.
-        self.animation.play_sequence(
+        self._play_sequence_scaled(
             [("jump", config.JUMP_DURATION_MS)],
             now_ms,
             then=config.DEFAULT_STATE,
@@ -235,17 +270,18 @@ class PetWindow(QWidget):
 
     def _do_happy_or_curious(self, now_ms: int) -> None:
         if self.stats.curiosity >= 60.0 and "look_around" in self.assets.states:
-            self.animation.play_sequence([("look_around", config.LOOK_AROUND_DURATION_MS)], now_ms)
+            self._play_sequence_scaled([("look_around", config.LOOK_AROUND_DURATION_MS)], now_ms)
         else:
-            self.animation.play_sequence([("happy", config.HAPPY_DURATION_MS)], now_ms, then=config.DEFAULT_STATE)
+            self._play_sequence_scaled([("happy", config.HAPPY_DURATION_MS)], now_ms, then=config.DEFAULT_STATE)
 
     def _feed(self) -> None:
         """Feed -> eat one-shot -> happy -> idle, plus stat/speech effects."""
         now = monotonic_ms()
         self.behavior.notice(now)
         self._wake_from_sleep(now)
-        self.stats.feed()
-        started = self.animation.play_sequence(
+        self.stats.feed(self.settings.personality_id)
+        self.sound_manager.play("munch")
+        started = self._play_sequence_scaled(
             [("eat", config.EAT_DURATION_MS), ("happy", config.HAPPY_DURATION_MS)],
             now,
             then=config.DEFAULT_STATE,
@@ -260,11 +296,25 @@ class PetWindow(QWidget):
         now = monotonic_ms()
         if not force and (now - self._last_speech_ms) < 1500:
             return
-        line = self.voice_lines.get(trigger)
+        line = self.voice_lines.get(trigger, self.settings.personality_id)
         if not line:
             return
         self._last_speech_ms = now
         self.speech_bubble.say(line, self.frameGeometry())
+
+    def _play_sequence_scaled(
+        self,
+        sequence: list[tuple[str, int]],
+        now_ms: int,
+        *,
+        then: str | None = None,
+        force: bool = False,
+    ) -> bool:
+        scaled = []
+        multiplier = max(0.1, self.settings.animation_speed_multiplier)
+        for state, duration_ms in sequence:
+            scaled.append((state, max(1, int(duration_ms / multiplier))))
+        return self.animation.play_sequence(scaled, now_ms, then=then, force=force)
 
     def _set_movement_paused(self, paused: bool) -> None:
         self.movement_paused = paused
@@ -287,6 +337,19 @@ class PetWindow(QWidget):
             self.speech_action.setChecked(enabled)
         self.settings.save()
         LOGGER.info("Speech bubbles %s.", "enabled" if enabled else "disabled")
+
+    def _set_sound_enabled(self, enabled: bool) -> None:
+        self.settings.sound_enabled = enabled
+        self.sound_manager.set_enabled(enabled)
+        if self.sound_action is not None and self.sound_action.isChecked() != enabled:
+            self.sound_action.setChecked(enabled)
+        self.settings.save()
+        LOGGER.info("Sound effects %s.", "enabled" if enabled else "disabled")
+
+    def _set_debug_enabled(self, enabled: bool) -> None:
+        self.settings.debug_enabled = enabled
+        self.debug_label.setVisible(enabled)
+        self.settings.save()
 
     def _toggle_size(self) -> None:
         cycle = config.SCALE_CYCLE
@@ -313,6 +376,12 @@ class PetWindow(QWidget):
 
     def _build_context_menu(self) -> None:
         menu = QMenu(self)
+
+        status_action = QAction("Pet Status", self)
+        status_action.triggered.connect(self._open_status_dialog)
+        menu.addAction(status_action)
+        menu.addSeparator()
+
         feed_action = QAction("Feed banana", self)
         feed_action.triggered.connect(self._feed)
         menu.addAction(feed_action)
@@ -333,6 +402,18 @@ class PetWindow(QWidget):
         self.speech_action.setChecked(self.settings.speech_enabled)
         self.speech_action.triggered.connect(self._set_speech_enabled)
         menu.addAction(self.speech_action)
+
+        self.sound_action = QAction("Sound Effects", self)
+        self.sound_action.setCheckable(True)
+        self.sound_action.setChecked(self.settings.sound_enabled)
+        self.sound_action.triggered.connect(self._set_sound_enabled)
+        menu.addAction(self.sound_action)
+
+        self.debug_action = QAction("Debug Overlay", self)
+        self.debug_action.setCheckable(True)
+        self.debug_action.setChecked(self.settings.debug_enabled)
+        self.debug_action.triggered.connect(self._set_debug_enabled)
+        menu.addAction(self.debug_action)
         menu.addSeparator()
 
         quit_action = QAction("Quit", self)
@@ -373,6 +454,12 @@ class PetWindow(QWidget):
             return
 
         self.tray_menu = QMenu(self)
+
+        status_action = QAction("Pet Status", self)
+        status_action.triggered.connect(self._open_status_dialog)
+        self.tray_menu.addAction(status_action)
+        self.tray_menu.addSeparator()
+
         self.visibility_action = QAction("Hide pet", self)
         self.visibility_action.triggered.connect(self._toggle_pet_visibility)
         self.tray_menu.addAction(self.visibility_action)
@@ -414,7 +501,36 @@ class PetWindow(QWidget):
         self._last_stats_ms = now
 
         asleep = self.animation.state == "sleep"
-        self.stats.update(dt_s, asleep=asleep)
+        self.stats.update(
+            dt_s,
+            asleep=asleep,
+            personality_id=self.settings.personality_id,
+            hunger_rate=self.settings.hunger_drift_rate,
+            energy_rate=self.settings.energy_drift_rate,
+            annoyance_decay=self.settings.annoyance_decay_rate,
+        )
+        if asleep and random.random() < 0.15:
+            self.sound_manager.play("snore")
+
+        if self.settings.debug_enabled:
+            debug_text = (
+                f"State: {self.animation.state}\n"
+                f"Hunger: {self.stats.hunger:.1f}\n"
+                f"Energy: {self.stats.energy:.1f}\n"
+                f"Happy:  {self.stats.happiness:.1f}\n"
+                f"Annoy:  {self.stats.annoyance:.1f}\n"
+                f"Curio:  {self.stats.curiosity:.1f}\n"
+                f"Trust:  {self.stats.trust:.1f}"
+            )
+            self.debug_label.setText(debug_text)
+            self.debug_label.adjustSize()
+
+        # Awake, not playing temporary animations: occasionally express needs.
+        if not asleep and not self.animation.is_temporary:
+            if self.stats.is_hungry and random.random() < 0.05:
+                self._say("hungry")
+            elif self.stats.is_tired and random.random() < 0.05:
+                self._say("tired")
 
         if self.movement_paused or self.animation.is_temporary or not self.isVisible():
             return
@@ -423,8 +539,9 @@ class PetWindow(QWidget):
         if self.stats.is_tired and not asleep and self.animation.state in {"idle", "sit"}:
             if not self._sleep_transition_started:
                 self._sleep_transition_started = True
-                if self.animation.play_sequence([("yawn", config.YAWN_DURATION_MS)], now, then="sleep"):
+                if self._play_sequence_scaled([("yawn", config.YAWN_DURATION_MS)], now, then="sleep"):
                     self._say("sleep")
+                    self.sound_manager.play("snore")
             return
 
         # High annoyance occasionally triggers an evasive angry flash.
@@ -503,8 +620,9 @@ class PetWindow(QWidget):
         if not step.moving and self.behavior.should_sleep(now):
             if self.animation.state != "sleep" and not self._sleep_transition_started:
                 self._sleep_transition_started = True
-                if self.animation.play_sequence([("yawn", config.YAWN_DURATION_MS)], now, then="sleep"):
+                if self._play_sequence_scaled([("yawn", config.YAWN_DURATION_MS)], now, then="sleep"):
                     self._say("sleep")
+                    self.sound_manager.play("snore")
             else:
                 self.animation.set_state("sleep")
             return
@@ -519,7 +637,7 @@ class PetWindow(QWidget):
 
         idle_variation = self.behavior.next_idle_variation(now)
         if idle_variation == "look_around":
-            self.animation.play_sequence(
+            self._play_sequence_scaled(
                 [("look_around", config.LOOK_AROUND_DURATION_MS)],
                 now,
                 then=config.DEFAULT_STATE,
@@ -527,7 +645,7 @@ class PetWindow(QWidget):
             self._say("idle")
             return
         if idle_variation == "sit":
-            self.animation.play_sequence(
+            self._play_sequence_scaled(
                 [("sit", config.SIT_DURATION_MS)],
                 now,
                 then=config.DEFAULT_STATE,
@@ -536,7 +654,7 @@ class PetWindow(QWidget):
             return
 
         if self.behavior.should_blink(now):
-            self.animation.play_sequence(
+            self._play_sequence_scaled(
                 [("blink", config.BLINK_DURATION_MS)],
                 now,
                 then=config.DEFAULT_STATE,
@@ -550,6 +668,7 @@ class PetWindow(QWidget):
             screen_rect,
             allow_motion=allow_motion,
             allow_follow=allow_follow,
+            trust=self.stats.trust,
         )
         if step.position != self.pos():
             self.move(step.position)
@@ -561,7 +680,7 @@ class PetWindow(QWidget):
         self.behavior.notice(now_ms)
         self._sleep_transition_started = False
         self.stats.on_wake()
-        if self.animation.play_sequence([("wake", config.WAKE_DURATION_MS)], now_ms, then=config.DEFAULT_STATE):
+        if self._play_sequence_scaled([("wake", config.WAKE_DURATION_MS)], now_ms, then=config.DEFAULT_STATE):
             self._say("wake")
         return True
 
@@ -613,6 +732,19 @@ class PetWindow(QWidget):
         y = min(max(position.y(), rect.top()), max_y)
         return QPoint(x, y)
 
+    def _open_status_dialog(self) -> None:
+        if self._status_dialog is not None:
+            self._status_dialog.raise_()
+            self._status_dialog.activateWindow()
+            return
+        from .dialogs import PetStatusDialog
+        self._status_dialog = PetStatusDialog(self)
+        self._status_dialog.finished.connect(self._on_status_dialog_closed)
+        self._status_dialog.show()
+
+    def _on_status_dialog_closed(self, result: int) -> None:
+        self._status_dialog = None
+
 
 def _configure_logging() -> None:
     """Console + rotating project-local file log. Never logs private/system data."""
@@ -647,6 +779,7 @@ def _configure_logging() -> None:
 def run(argv: list[str] | None = None) -> int:
     _configure_logging()
     LOGGER.info("Chaos Desktop Pet starting up.")
+    check_and_generate_sounds()
 
     app = QApplication(argv if argv is not None else sys.argv)
     app.setQuitOnLastWindowClosed(True)

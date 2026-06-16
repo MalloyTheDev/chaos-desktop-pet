@@ -60,6 +60,7 @@ USER_SETTINGS_PATH = DATA_DIR / "settings.json"
 LEGACY_SETTINGS_PATH = SETTINGS_PATH  # original ./settings.json is still honored
 LOG_PATH = LOGS_DIR / "chaos_pet.log"
 VOICE_LINES_PATH = DATA_DIR / "voice_lines.json"
+SOUNDS_DIR = PROJECT_ROOT / "assets" / "sounds"
 
 SAVE_SCHEMA_VERSION = 1
 SETTINGS_SCHEMA_VERSION = 1
@@ -70,6 +71,7 @@ DEFAULT_PET_NAME = "Bongo"
 DEFAULT_PERSONALITY_ID = "playful"
 SPEECH_ENABLED = True
 DEBUG_ENABLED = False
+SOUND_ENABLED = False
 MOVEMENT_SPEED_MULTIPLIER = 1.0
 ANIMATION_SPEED_MULTIPLIER = 1.0
 
@@ -87,3 +89,8 @@ SPEECH_BUBBLE_MS = 2_600
 
 # How long a stat tick represents (the behavior timer drives stat decay).
 STATS_TICK_MS = 1_000
+
+# Stat drift rate defaults.
+HUNGER_DRIFT_RATE = 0.6
+ENERGY_DRIFT_RATE = 0.45
+ANNOYANCE_DECAY_RATE = 4.0

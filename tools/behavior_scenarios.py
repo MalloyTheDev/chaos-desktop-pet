@@ -180,6 +180,38 @@ def scenario_idle_variation_and_blink() -> None:
           f"variation={var}")
 
 
+def scenario_trust_modulates_movement() -> None:
+    b = fresh_behavior()
+    pos = QPoint(400, 400)
+    cursor = QPointF(500.0, 464.0)
+
+    # 1. Neutral trust (50.0) -> Normal stop distance (28px). Cursor is 36px away, so it should move.
+    step_neutral = b.step(pos, cursor, PET_SIZE, SCREEN, allow_motion=True, allow_follow=True, trust=50.0)
+    check("trust: neutral trust follows cursor", step_neutral.moving is True)
+
+    # 2. High trust (80.0) -> Stays closer (stop distance 20px). Speed multiplier 1.25x.
+    step_high = b.step(pos, cursor, PET_SIZE, SCREEN, allow_motion=True, allow_follow=True, trust=80.0)
+    check("trust: high trust follows cursor and is moving", step_high.moving is True)
+
+    # Compare speed
+    dist_neutral = abs(step_neutral.position.x() - pos.x())
+    dist_high = abs(step_high.position.x() - pos.x())
+    check("trust: high trust moves faster than neutral", dist_high > dist_neutral, f"high={dist_high} neutral={dist_neutral}")
+
+    # 3. Low trust (20.0) -> Keeps distance (stop distance 88px). Speed multiplier 0.5x.
+    # Distance is 36px. Since 36 <= 88, it should NOT move.
+    step_low = b.step(pos, cursor, PET_SIZE, SCREEN, allow_motion=True, allow_follow=True, trust=20.0)
+    check("trust: low trust holds still when cursor is within keeping-distance range", step_low.moving is False, f"moving={step_low.moving}")
+
+    # For distant cursor, it moves, but slower than neutral.
+    cursor_far = QPointF(614.0, 464.0)
+    step_neutral_far = b.step(pos, cursor_far, PET_SIZE, SCREEN, allow_motion=True, allow_follow=True, trust=50.0)
+    step_low_far = b.step(pos, cursor_far, PET_SIZE, SCREEN, allow_motion=True, allow_follow=True, trust=20.0)
+    dist_neutral_far = abs(step_neutral_far.position.x() - pos.x())
+    dist_low_far = abs(step_low_far.position.x() - pos.x())
+    check("trust: low trust moves slower than neutral", dist_low_far < dist_neutral_far, f"low={dist_low_far} neutral={dist_neutral_far}")
+
+
 def main() -> int:
     scenario_follow_walk_and_run()
     scenario_too_far_and_too_close()
@@ -189,6 +221,7 @@ def main() -> int:
     scenario_screen_clamp()
     scenario_animation_sequence_and_fallback()
     scenario_idle_variation_and_blink()
+    scenario_trust_modulates_movement()
 
     print()
     print(f"Scenarios: {len(_passes)} passed, {len(_failures)} failed, "

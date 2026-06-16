@@ -70,6 +70,7 @@ class PetBehavior:
         *,
         allow_motion: bool,
         allow_follow: bool,
+        trust: float = 50.0,
     ) -> BehaviorStep:
         if not allow_motion:
             self.cancel_motion()
@@ -94,8 +95,21 @@ class PetBehavior:
         if not allow_follow:
             return BehaviorStep(position=position, moving=False, distance_to_cursor=distance)
 
+        # Trust-based follow behavior modulations:
+        # High trust (>= 70) -> stays closer and moves faster.
+        # Low trust (< 30) -> stays farther away and moves slower.
+        if trust >= 70.0:
+            stop_dist = config.CURSOR_STOP_DISTANCE_PX - 8.0
+            speed_mult = 1.25
+        elif trust < 30.0:
+            stop_dist = config.CURSOR_STOP_DISTANCE_PX + 60.0
+            speed_mult = 0.5
+        else:
+            stop_dist = config.CURSOR_STOP_DISTANCE_PX
+            speed_mult = 1.0
+
         if (
-            distance <= config.CURSOR_STOP_DISTANCE_PX
+            distance <= stop_dist
             or distance > config.CURSOR_FOLLOW_DISTANCE_PX
         ):
             return BehaviorStep(position=position, moving=False, distance_to_cursor=distance)
@@ -107,11 +121,11 @@ class PetBehavior:
             return BehaviorStep(position=position, moving=False, distance_to_cursor=distance)
 
         motion_state = "run" if distance >= config.RUN_DISTANCE_PX else "walk"
-        speed = self.walk_speed_px
+        speed = self.walk_speed_px * speed_mult
         if motion_state == "run":
             speed *= config.RUN_SPEED_MULTIPLIER
 
-        step_size = min(speed, max(0.0, length - config.CURSOR_STOP_DISTANCE_PX))
+        step_size = min(speed, max(0.0, length - stop_dist))
         next_position = QPointF(
             current.x() + direction.x() / length * step_size,
             current.y() + direction.y() / length * step_size,
