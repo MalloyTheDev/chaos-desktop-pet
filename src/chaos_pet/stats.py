@@ -22,7 +22,7 @@ def clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
 class PetStats:
     hunger: float = 25.0
     energy: float = 80.0
-    happiness: float = 60.0
+    happiness: float = 80.0
     annoyance: float = 0.0
     curiosity: float = 50.0
     trust: float = 50.0
@@ -58,15 +58,15 @@ class PetStats:
             pass  # energy does not decrease in idle mode
         else:
             self.energy = clamp(self.energy - energy_rate * dt_s * energy_decay_mult)
-        # Happiness normalizes toward neutral (50).
-        self.happiness = clamp(self.happiness + (50.0 - self.happiness) * 0.03 * dt_s)
+        # Happiness normalizes toward content baseline (80.0).
+        self.happiness = clamp(self.happiness + (80.0 - self.happiness) * 0.0002 * dt_s)
         # Annoyance decays.
         self.annoyance = clamp(self.annoyance - annoyance_decay * dt_s * annoyance_decay_mult)
         # Curiosity drifts gently back toward neutral.
         self.curiosity = clamp(self.curiosity + (50.0 - self.curiosity) * 0.02 * dt_s * curiosity_mult)
         # Being very hungry slowly erodes happiness.
         if self.hunger >= 80.0:
-            self.happiness = clamp(self.happiness - 0.5 * dt_s)
+            self.happiness = clamp(self.happiness - 0.005 * dt_s)
 
         # Trust slowly normalizes toward 50.0.
         if self.trust < 50.0:
