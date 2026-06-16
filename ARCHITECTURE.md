@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Architecture
 
-How the code fits together (v0.6). For the vision and roadmap see
+How the code fits together (v0.7). For the vision and roadmap see
 [ROADMAP.md](ROADMAP.md); for setup/usage see [README.md](README.md).
 
 ## Design shape
@@ -17,6 +17,7 @@ main.py
               ├─ AnimationController + StatePolicy   (animation.py)
               ├─ PetBehavior + ClickTracker          (behavior.py)
               ├─ WeightedBehaviorBrain                (brain.py)
+              ├─ FacingTracker                        (facing.py)
               ├─ PetStats                             (stats.py)
               ├─ SpriteAssets                         (asset_loader.py)
               ├─ SpeechBubble + VoiceLines            (speech.py)
@@ -40,6 +41,7 @@ main.py
 | `animation.py` | `AnimationController` + `StatePolicy` priority/interrupt table | Qt pixmaps | no |
 | `behavior.py` | `PetBehavior` (follow/sleep/blink/idle/knockback) + `ClickTracker` (pure math) | minimal | no |
 | `brain.py` | `WeightedBehaviorBrain`: deterministic mood/personality weighted idle decisions (pure) | no | no |
+| `facing.py` | `FacingTracker`: deterministic left/right facing from movement deltas (pure) | no | no |
 | `speech.py` | `VoiceLines` (local JSON) + `SpeechBubble` (click-through popup) | yes | reads/writes JSON |
 | `sfx.py` | `SoundManager` + WAV generator: programmatically builds / plays local synthetic SFX | yes (Qt Audio) | yes |
 | `dialogs.py` | `PetStatusDialog`: Premium QSS dark-themed dashboard showing stats & name/personality edit | yes | yes (saves settings) |
@@ -59,7 +61,8 @@ main.py
 ## Data flow
 
 - **Render:** animation timer → `AnimationController.update(now)` cycles frames of
-  the current state → label pixmap.
+  the current state → `FacingTracker` decides whether the displayed pixmap should
+  be mirrored → label pixmap.
 - **Decide:** behavior timer → `_on_behavior_tick` asks `PetBehavior.step(...)` for a
   move, then asks `WeightedBehaviorBrain` for an idle decision when the pet is not
   moving and not in a temporary animation. Follow → `walk`/`run`; weighted idle →
@@ -128,6 +131,8 @@ subprocess, dynamic code execution, autostart, or telemetry anywhere in the app.
   `idle/feed/happy/angry/sleep/wake/click`).
 - **New mood rule** — add drift/trigger logic in `stats.py` (stays unit-testable).
 - **New idle decision** — add or tune candidate scoring in `brain.py`.
+- **Directional-specific sprites later** — keep `facing.py` as the direction source;
+  replace runtime mirroring only if separate left/right assets are introduced.
 - **New setting** — add a field to `PetSettings` + a validator in `settings.py`.
 
 ## Tests
@@ -136,7 +141,7 @@ No window, no pytest dependency:
 
 - `tools/run_tests.py` — natural sort, asset fallback, mandatory-idle, animation
   one-shot/priority, click combos, stat decay, feed effects, save/load roundtrip,
-  corrupt-save fallback, settings defaults, weighted brain decisions.
+  corrupt-save fallback, settings defaults, weighted brain decisions, facing.
 - `tools/behavior_scenarios.py` — movement/animation scenarios (follow/run,
   knockback arc, sleep/wake, edge-clamp, sequencing).
 - `tools/smoke_test.py` — offscreen load + required-state check.

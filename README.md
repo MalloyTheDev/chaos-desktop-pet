@@ -5,10 +5,10 @@ loads local 64×64 transparent PNG frames, scales them crisply with
 nearest-neighbor filtering, and shows the pet in a transparent, always-on-top
 PyQt6 window with moods, reactions, feeding, and local speech bubbles.
 
-**Status:** v0.6.0 · local-only · fully offline · no AI/network/telemetry.
+**Status:** v0.7.0 · local-only · fully offline · no AI/network/telemetry.
 
 The goal is a creature that feels *alive* — responsive and moody — entirely
-offline and deterministic. The v0.6 "brain" is deterministic game-AI-style
+offline and deterministic. The weighted brain is deterministic game-AI-style
 behavior scoring, not an AI/LLM/API system. The big picture and roadmap are in
 [ROADMAP.md](ROADMAP.md); how the code fits together is in
 [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -34,6 +34,8 @@ behavior scoring, not an AI/LLM/API system. The big picture and roadmap are in
 - Animation **priority/interrupt policy** — one-shots don't thrash; click-spam is safe.
 - Mood-weighted idle choices via a deterministic weighted brain (`blink`,
   `look_around`, `sit`, `happy`, `angry`, sleepy-adjacent idle when available).
+- Directional sprite flip: movement/drag deltas update facing direction, and the
+  rendered sprite mirrors when facing left.
 - Cursor follow (`walk`/`run`), screen-edge clamping, drag-to-move.
 - **Moods** (`hunger`, `energy`, `happiness`, `annoyance`, `curiosity`, `trust`) that drift and react.
 - **Interactive Drag Animations** — loops `fall` sprite during drag and executes a cushioning `land` sequence on drop release.
@@ -44,7 +46,7 @@ behavior scoring, not an AI/LLM/API system. The big picture and roadmap are in
 - Local, offline **speech bubbles** (editable lines, disableable) and occasional mood alerts.
 - Sleep cycle (`yawn`→`sleep`→`wake`); project-local save/settings/logs.
 
-See [ROADMAP.md](ROADMAP.md) for the full feature history (v0.1 → v0.5) and what's next.
+See [ROADMAP.md](ROADMAP.md) for the full feature history (v0.1 → v0.7) and what's next.
 
 ## Setup
 
@@ -92,6 +94,7 @@ src/chaos_pet/
   animation.py             AnimationController + priority policy
   behavior.py              movement/idle/sleep + ClickTracker
   brain.py                 deterministic mood-weighted idle decision layer
+  facing.py                deterministic left/right facing tracker
   speech.py                local voice lines + bubble
   app.py                   PetWindow + run() (Qt + wiring)
 tools/                     validate_assets, smoke_test, run_tests, behavior_scenarios
@@ -159,8 +162,8 @@ Valid `starting_corner` values: `top_left`, `top_right`, `bottom_left`,
 logged warning and replaced by defaults.
 
 `personality_id` is live: it affects stat drift, feed/click effects, speech line
-selection, and the v0.6 weighted idle brain. `debug_enabled` shows the live stats
-overlay and, in v0.6, the last brain decision.
+selection, and the weighted idle brain. `debug_enabled` shows the live stats
+overlay and the last brain decision.
 
 ## Mood / stats
 
@@ -171,7 +174,7 @@ energy nudges the pet toward sleep; high annoyance can trigger an evasive angry
 flash. Personality modulates drift and interaction effects without overriding the
 stats completely.
 
-## Weighted brain (v0.6)
+## Weighted brain
 
 `src/chaos_pet/brain.py` scores idle candidates from current stats,
 `personality_id`, available animation states, time since attention, pause state,
@@ -196,7 +199,7 @@ No-window checks (offscreen Qt; no pytest needed):
 ```powershell
 python tools\validate_assets.py      # per-PNG 64x64 + alpha, and the mandatory 'idle' state
 python tools\smoke_test.py           # load settings + assets, check idle fallback, no window
-python tools\run_tests.py            # 70 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, security
+python tools\run_tests.py            # 76 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, facing, security
 python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 ```
 
@@ -204,6 +207,8 @@ python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 
 - No installer or EXE packaging yet; no startup integration (by design)
 - Movement is intentionally simple and may need tuning after playtesting
+- Directional facing uses runtime pixmap mirroring; there are no separate
+  direction-specific sprite folders yet
 
 ## License
 

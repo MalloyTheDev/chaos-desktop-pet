@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Vision & Roadmap
 
-**Status: v0.6.0 · local-only · fully offline · no AI/network/telemetry**
+**Status: v0.7.0 · local-only · fully offline · no AI/network/telemetry**
 
 This document is the big picture: what the project is, the principle behind it,
 where it is now, and where it is going. For setup/usage see [README.md](README.md);
@@ -19,7 +19,7 @@ moody, and a little chaotic, with behavior that has readable causes.
 > good desktop pet = **animation + mood + memory + feedback + surprise**
 
 Behavior should have causes: a tired pet drifts toward rest, an annoyed pet can
-lash out, a curious pet looks around. The v0.6 brain is deterministic
+lash out, a curious pet looks around. The weighted brain is deterministic
 game-AI-style scoring, not an AI/LLM/API feature.
 
 ## Hard constraints (these define the project)
@@ -35,18 +35,19 @@ game-AI-style scoring, not an AI/LLM/API feature.
 
 ---
 
-## Where we are now (v0.6)
+## Where we are now (v0.7)
 
 The first offline feel-alive foundation is in place, including deterministic
-mood-weighted idle behavior.
+mood-weighted idle behavior and directional facing.
 
 | System | What works today |
 | --- | --- |
-| **Rendering** | Transparent always-on-top window; cached 64x64 frames, nearest-neighbor scaling; missing optional states fall back to `idle`, mandatory `idle` fails loudly |
+| **Rendering** | Transparent always-on-top window; cached 64x64 frames, nearest-neighbor scaling; directional pixmap mirroring; missing optional states fall back to `idle`, mandatory `idle` fails loudly |
 | **Animation** | Looping + one-shot states with a priority/interrupt policy that prevents thrashing and click-spam corruption |
 | **Movement** | Cursor follow (`walk`/`run`), screen-edge clamping to the pet's own monitor, drag-to-reposition with `fall`/`land` animations |
 | **Moods** | `PetStats` tracks hunger, energy, happiness, annoyance, curiosity, and trust; personality modulates drift and interaction effects |
 | **Weighted brain** | Pure `brain.py` scores idle choices from stats, personality, available animation states, attention timing, pause state, and temporary-animation state |
+| **Facing** | Pure `facing.py` tracks left/right direction from movement deltas and ignores tiny jitter |
 | **Interaction** | Escalating left-clicks, right-click context menu, banana feeding, pause/resume, toggle size, status dialog |
 | **Speech** | Local offline voice lines in temporary click-through bubbles; personality-specific line pools are supported |
 | **Persistence** | Atomic project-local `data/save.json` + `data/settings.json`; rotating `logs/chaos_pet.log` |
@@ -63,17 +64,14 @@ mood-weighted idle behavior.
 - **v0.5** — Synthetic local sound effects, personality modulations, trust-based behavior,
   drag-to-fall/release-to-land animations, status dashboard dialog, needs tuning, and schema v2 settings migration
 - **v0.6** — Deterministic mood-weighted idle brain with explainable candidate scoring and brain-specific tests
+- **v0.6.1** — Runtime write boundary hardening: generated sounds moved to `data/sounds/`,
+  and JSON/SFX writes now fail closed outside `data/` and `logs/`
+- **v0.7** — Directional sprite flip from movement delta, using runtime pixmap mirroring
+  with no asset changes
 
 ---
 
 ## Roadmap
-
-### v0.7 — Directional Sprite Flip
-
-- Track facing direction from movement delta.
-- Flip rendered pixmap horizontally when needed.
-- Keep assets unchanged unless directional-specific sprites are later added.
-- Add tests for facing state and no movement jitter.
 
 ### v0.8 — Local Diary / Deeper Memory
 

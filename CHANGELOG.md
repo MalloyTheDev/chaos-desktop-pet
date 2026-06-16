@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format is based on
 resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 [SECURITY.md](SECURITY.md).
 
+## [0.7.0] - 2026-06-16
+
+### Added
+- `facing.py`: a pure left/right `FacingTracker` that updates from horizontal
+  movement deltas and ignores tiny jitter.
+- Directional sprite flip in `PetWindow`: rendered pixmaps are mirrored when the
+  pet is facing left, with a small cache so repeated frames are not transformed
+  every tick.
+- Facing tests for default direction, left/right deltas, jitter resistance,
+  position-delta updates, and invalid initial values.
+
+### Changed
+- Drag movement and cursor-follow movement now update facing direction from the
+  actual clamped window delta.
+
 ## [0.6.1] - 2026-06-16
 
 ### Security

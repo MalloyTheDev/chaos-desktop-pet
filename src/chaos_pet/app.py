@@ -7,7 +7,17 @@ import sys
 import time
 
 from PyQt6.QtCore import QPoint, QPointF, Qt, QTimer
-from PyQt6.QtGui import QAction, QCursor, QIcon, QKeyEvent, QKeySequence, QMouseEvent, QShortcut
+from PyQt6.QtGui import (
+    QAction,
+    QCursor,
+    QIcon,
+    QKeyEvent,
+    QKeySequence,
+    QMouseEvent,
+    QPixmap,
+    QShortcut,
+    QTransform,
+)
 from PyQt6.QtWidgets import QApplication, QLabel, QMenu, QSystemTrayIcon, QWidget
 
 from . import config
@@ -15,6 +25,7 @@ from .animation import AnimationController
 from .asset_loader import MissingIdleError, load_sprite_assets, require_idle
 from .behavior import ClickTracker, PetBehavior
 from .brain import BrainContext, BrainDecision, WeightedBehaviorBrain
+from .facing import FacingTracker
 from .save import PetSave
 from .settings import load_settings
 from .sfx import SoundManager, check_and_generate_sounds
@@ -55,6 +66,8 @@ class PetWindow(QWidget):
         self.speech_action: QAction | None = None
         self._last_speech_ms = 0
         self._last_evasive_ms = 0
+        self.facing = FacingTracker()
+        self._flipped_pixmap_cache: dict[int, QPixmap] = {}
 
         # Persistent, project-local save (position, mood stats, identity).
         self.save_data = PetSave.load()
@@ -193,7 +206,10 @@ class PetWindow(QWidget):
                     self.animation.set_state("fall")
                     self._say("drag", force=True)
                 target = self._drag_start_window + delta
-                self.move(self._clamp_to_screen(target, current_global))
+                clamped = self._clamp_to_screen(target, current_global)
+                if clamped != self.pos():
+                    self.facing.update_from_positions(self.x(), clamped.x())
+                    self.move(clamped)
             event.accept()
             return
 
@@ -370,6 +386,7 @@ class PetWindow(QWidget):
         self.setFixedSize(*self.pet_size)
         self.label.setFixedSize(*self.pet_size)
         self.assets = load_sprite_assets(target_size=self.pet_size)
+        self._flipped_pixmap_cache.clear()
         self.animation = AnimationController(self.assets)
         self.animation.set_state(
             current_state if current_state in self.assets.states else config.DEFAULT_STATE
@@ -497,7 +514,20 @@ class PetWindow(QWidget):
             self._toggle_pet_visibility()
 
     def _on_animation_tick(self) -> None:
-        self.label.setPixmap(self.animation.update(monotonic_ms()))
+        self.label.setPixmap(self._oriented_pixmap(self.animation.update(monotonic_ms())))
+
+    def _oriented_pixmap(self, pixmap: QPixmap) -> QPixmap:
+        if not self.facing.should_flip:
+            return pixmap
+        cache_key = pixmap.cacheKey()
+        cached = self._flipped_pixmap_cache.get(cache_key)
+        if cached is None:
+            cached = pixmap.transformed(
+                QTransform().scale(-1.0, 1.0),
+                Qt.TransformationMode.FastTransformation,
+            )
+            self._flipped_pixmap_cache[cache_key] = cached
+        return cached
 
     def _on_stats_tick(self) -> None:
         now = monotonic_ms()
@@ -702,6 +732,7 @@ class PetWindow(QWidget):
             trust=self.stats.trust,
         )
         if step.position != self.pos():
+            self.facing.update_from_positions(self.x(), step.position.x())
             self.move(step.position)
         return step
 

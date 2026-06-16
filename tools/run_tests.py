@@ -32,6 +32,7 @@ from chaos_pet.asset_loader import (
 )
 from chaos_pet.behavior import ClickTracker
 from chaos_pet.brain import BrainContext, WeightedBehaviorBrain
+from chaos_pet.facing import FacingTracker
 from chaos_pet.save import PetSave
 from chaos_pet.settings import PetSettings, _from_raw, _int_setting
 from chaos_pet.stats import PetStats
@@ -214,6 +215,26 @@ def test_weighted_brain() -> None:
     check("brain: deterministic for same context", first == second, f"first={first} second={second}")
 
 
+def test_facing_tracker() -> None:
+    tracker = FacingTracker()
+    check("facing: default faces right", tracker.facing == "right" and not tracker.should_flip, tracker.facing)
+
+    tracker.update_from_delta(-3.0)
+    check("facing: left movement faces left", tracker.facing == "left" and tracker.should_flip, tracker.facing)
+
+    tracker.update_from_delta(3.0)
+    check("facing: right movement faces right", tracker.facing == "right" and not tracker.should_flip, tracker.facing)
+
+    tracker.update_from_delta(-0.5)
+    check("facing: tiny left jitter does not flip", tracker.facing == "right", tracker.facing)
+
+    tracker.update_from_positions(100.0, 97.0)
+    check("facing: position delta can face left", tracker.facing == "left", tracker.facing)
+
+    invalid = FacingTracker(facing="sideways")
+    check("facing: invalid initial value falls back safely", invalid.facing == "right", invalid.facing)
+
+
 def test_save_roundtrip() -> None:
     path = config.DATA_DIR / "_test_save.json"
     try:
@@ -359,6 +380,7 @@ def main() -> int:
         test_stat_decay,
         test_feed_changes,
         test_weighted_brain,
+        test_facing_tracker,
         test_save_roundtrip,
         test_corrupt_save_fallback,
         test_settings_defaults,
