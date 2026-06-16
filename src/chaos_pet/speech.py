@@ -38,9 +38,9 @@ DEFAULT_VOICE_LINES: dict[str, list[str]] = {
 class VoiceLines:
     """Loads local voice lines, falling back to built-in defaults."""
 
-    def __init__(self, lines: dict[str, list[str]]) -> None:
+    def __init__(self, lines: dict[str, list[str]], *, rng_seed: int = config.DETERMINISTIC_RNG_SEED) -> None:
         self._lines = lines
-        self._rng = random.Random()
+        self._rng = random.Random(rng_seed)
 
     @classmethod
     def load(cls, path: Path = config.VOICE_LINES_PATH) -> "VoiceLines":

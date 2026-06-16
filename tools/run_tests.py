@@ -31,6 +31,7 @@ from chaos_pet.asset_loader import (
     require_idle,
 )
 from chaos_pet.behavior import ClickTracker
+from chaos_pet.brain import BrainContext, WeightedBehaviorBrain
 from chaos_pet.save import PetSave
 from chaos_pet.settings import PetSettings, _from_raw, _int_setting
 from chaos_pet.stats import PetStats
@@ -143,6 +144,74 @@ def test_feed_changes() -> None:
     check("feed: hunger drops", s.hunger == 30.0, str(s.hunger))
     check("feed: happiness rises", s.happiness == 60.0, str(s.happiness))
     check("feed: trust rises", s.trust == 55.0, str(s.trust))
+
+
+def test_weighted_brain() -> None:
+    brain = WeightedBehaviorBrain()
+    all_states = frozenset({"idle", "blink", "look_around", "sit", "happy", "angry", "yawn"})
+
+    def ctx(
+        stats: PetStats,
+        *,
+        personality_id: str = "playful",
+        available_states: frozenset[str] = all_states,
+        movement_paused: bool = False,
+        temporary_animation_active: bool = False,
+    ) -> BrainContext:
+        return BrainContext(
+            stats=stats,
+            personality_id=personality_id,
+            current_state="idle",
+            available_states=available_states,
+            time_since_attention_ms=12_000,
+            movement_paused=movement_paused,
+            temporary_animation_active=temporary_animation_active,
+        )
+
+    curious = brain.decide(ctx(PetStats(curiosity=95.0, happiness=70.0), personality_id="playful"))
+    check("brain: high curiosity/playful favors look_around", curious.name == "look_around", str(curious))
+
+    tired = brain.decide(ctx(PetStats(energy=5.0, happiness=50.0), personality_id="lazy"))
+    check(
+        "brain: low energy/lazy favors sit or sleepy idle",
+        tired.name in {"sit", "sleepy_idle"} and tired.animation_state in {"sit", "yawn"},
+        str(tired),
+    )
+
+    annoyed = brain.decide(ctx(PetStats(annoyance=95.0, happiness=40.0), personality_id="grumpy"))
+    check("brain: high annoyance/grumpy favors annoyed idle", annoyed.name == "annoyed_idle", str(annoyed))
+
+    happy = brain.decide(
+        ctx(PetStats(happiness=95.0, trust=95.0, annoyance=0.0), personality_id="affectionate")
+    )
+    check("brain: happiness/trust/affectionate favors happy idle", happy.name == "happy_idle", str(happy))
+
+    missing_optional = brain.decide(
+        ctx(PetStats(curiosity=95.0), available_states=frozenset({"idle", "blink"}))
+    )
+    check(
+        "brain: missing optional states skipped cleanly",
+        missing_optional.animation_state in {"idle", "blink"},
+        str(missing_optional),
+    )
+
+    unknown = brain.decide(ctx(PetStats(curiosity=95.0), personality_id="__unknown__"))
+    check("brain: unknown personality falls back safely", unknown.animation_state in all_states, str(unknown))
+
+    temp = brain.decide(ctx(PetStats(curiosity=95.0), temporary_animation_active=True))
+    check("brain: temporary animation active returns no-op", temp.animation_state is None, str(temp))
+
+    paused = brain.decide(ctx(PetStats(curiosity=95.0), movement_paused=True))
+    check(
+        "brain: movement paused avoids movement-like states",
+        paused.animation_state not in {"walk", "run", "fall", "land", "jump"},
+        str(paused),
+    )
+
+    stable_context = ctx(PetStats(curiosity=70.0, happiness=80.0, trust=55.0), personality_id="playful")
+    first = brain.decide(stable_context)
+    second = brain.decide(stable_context)
+    check("brain: deterministic for same context", first == second, f"first={first} second={second}")
 
 
 def test_save_roundtrip() -> None:
@@ -270,6 +339,7 @@ def main() -> int:
         test_click_combo,
         test_stat_decay,
         test_feed_changes,
+        test_weighted_brain,
         test_save_roundtrip,
         test_corrupt_save_fallback,
         test_settings_defaults,

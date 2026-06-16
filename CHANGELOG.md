@@ -6,6 +6,40 @@ All notable changes to this project are documented here. Format is based on
 resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 [SECURITY.md](SECURITY.md).
 
+## [0.6.0] - 2026-06-16
+
+### Added
+- `brain.py`: a pure deterministic weighted idle decision layer that scores
+  `blink`, `look_around`, `sit`, `happy_idle`, `annoyed_idle`, and
+  `sleepy_idle` candidates from `PetStats`, `personality_id`, available sprite
+  states, attention timing, pause state, and temporary-animation state.
+- Brain decision tests covering curiosity/playful, tired/lazy, annoyed/grumpy,
+  happy/trust/affectionate, missing optional states, unknown personalities,
+  temporary animation no-op, movement-pause safety, and deterministic stability.
+- Debug overlay now includes the latest brain decision, reason, and score when
+  debug mode is enabled.
+
+### Changed
+- Replaced the old random idle variation action picker with deterministic
+  weighted brain decisions while keeping existing movement, sleep, click,
+  feeding, speech, sound, drag, and animation priority behavior intact.
+- `PetBehavior` now owns idle/blink timing and attention age; the new brain owns
+  idle action choice.
+- Seeded remaining local pseudo-random choices with a fixed project seed so
+  blink/idle scheduling, mood-alert odds, evasive odds, and speech line selection
+  are replayable instead of unseeded.
+
+### Docs
+- Updated README, roadmap, and architecture docs for v0.6.
+- Removed the stale README claim that `personality_id` and `debug_enabled` were
+  placeholders; both were already wired in v0.5 and remain active in v0.6.
+- Preserved the offline roadmap for v0.7 directional sprite flip, v0.8 local
+  diary, v0.9 particle overlays, and v1.0 polish + portable package.
+
+### Security
+- Preserves the no-AI, no-network, no-telemetry, no screen/clipboard reading,
+  no autostart, no registry, no services, and project-local-write guarantees.
+
 ## [0.5.0] - 2026-06-16
 
 ### Added

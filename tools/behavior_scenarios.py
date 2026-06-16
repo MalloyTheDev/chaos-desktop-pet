@@ -175,9 +175,10 @@ def scenario_idle_variation_and_blink() -> None:
     fired_late = b.should_blink(config.BLINK_MAX_DELAY_MS + 1)
     check("idle: blink respects schedule", (not fired_early) and fired_late,
           f"early={fired_early} late={fired_late}")
-    var = b.next_idle_variation(config.IDLE_VARIATION_MAX_DELAY_MS + 1)
-    check("idle: variation returns a known action", var in {"look_around", "sit"},
-          f"variation={var}")
+    due_early = b.idle_variation_due(0)
+    due_late = b.idle_variation_due(config.IDLE_VARIATION_MAX_DELAY_MS + 1)
+    check("idle: variation schedule respects delay", (not due_early) and due_late,
+          f"early={due_early} late={due_late}")
 
 
 def scenario_trust_modulates_movement() -> None:

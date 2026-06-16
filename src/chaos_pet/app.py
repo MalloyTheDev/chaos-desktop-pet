@@ -14,6 +14,7 @@ from . import config
 from .animation import AnimationController
 from .asset_loader import MissingIdleError, load_sprite_assets, require_idle
 from .behavior import ClickTracker, PetBehavior
+from .brain import BrainContext, BrainDecision, WeightedBehaviorBrain
 from .save import PetSave
 from .settings import load_settings
 from .sfx import SoundManager, check_and_generate_sounds
@@ -38,6 +39,7 @@ class PetWindow(QWidget):
         super().__init__()
 
         self.settings = load_settings()
+        self._rng = random.Random(config.DETERMINISTIC_RNG_SEED)
         self.movement_paused = self.settings.movement_paused
         self._drag_start_global: QPoint | None = None
         self._drag_start_window: QPoint | None = None
@@ -113,6 +115,8 @@ class PetWindow(QWidget):
             sleep_after_ms=self.settings.sleep_after_ms,
         )
         self.behavior.notice(monotonic_ms())
+        self.brain = WeightedBehaviorBrain()
+        self.last_brain_decision: BrainDecision | None = None
 
         # Esc quits regardless of widget focus.
         self._quit_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
@@ -512,10 +516,17 @@ class PetWindow(QWidget):
             energy_rate=self.settings.energy_drift_rate,
             annoyance_decay=self.settings.annoyance_decay_rate,
         )
-        if asleep and random.random() < 0.15:
+        if asleep and self._rng.random() < 0.15:
             self.sound_manager.play("snore")
 
         if self.settings.debug_enabled:
+            brain_text = ""
+            if self.last_brain_decision is not None:
+                brain_text = (
+                    f"\nBrain: {self.last_brain_decision.name}"
+                    f"\nWhy:    {self.last_brain_decision.reason}"
+                    f"\nScore:  {self.last_brain_decision.score:.1f}"
+                )
             debug_text = (
                 f"State: {self.animation.state}\n"
                 f"Hunger: {self.stats.hunger:.1f}\n"
@@ -524,15 +535,16 @@ class PetWindow(QWidget):
                 f"Annoy:  {self.stats.annoyance:.1f}\n"
                 f"Curio:  {self.stats.curiosity:.1f}\n"
                 f"Trust:  {self.stats.trust:.1f}"
+                f"{brain_text}"
             )
             self.debug_label.setText(debug_text)
             self.debug_label.adjustSize()
 
         # Awake, not playing temporary animations: occasionally express needs.
         if not asleep and not self.animation.is_temporary:
-            if self.stats.is_hungry and random.random() < 0.05:
+            if self.stats.is_hungry and self._rng.random() < 0.05:
                 self._say("hungry")
-            elif self.stats.is_tired and random.random() < 0.05:
+            elif self.stats.is_tired and self._rng.random() < 0.05:
                 self._say("tired")
 
         if self.movement_paused or self.animation.is_temporary or not self.isVisible():
@@ -549,7 +561,7 @@ class PetWindow(QWidget):
 
         # High annoyance occasionally triggers an evasive angry flash.
         if self.stats.is_irritated and self.animation.state in {"idle", "walk"}:
-            if (now - self._last_evasive_ms) > 4000 and random.random() < 0.25:
+            if (now - self._last_evasive_ms) > 4000 and self._rng.random() < 0.25:
                 self._last_evasive_ms = now
                 self._do_angry(now)
                 self._say("angry")
@@ -638,23 +650,23 @@ class PetWindow(QWidget):
         if self.animation.state != config.DEFAULT_STATE:
             self.animation.set_state(config.DEFAULT_STATE)
 
-        idle_variation = self.behavior.next_idle_variation(now)
-        if idle_variation == "look_around":
-            self._play_sequence_scaled(
-                [("look_around", config.LOOK_AROUND_DURATION_MS)],
-                now,
-                then=config.DEFAULT_STATE,
+        if self.behavior.idle_variation_due(now):
+            decision = self.brain.decide(
+                BrainContext(
+                    stats=self.stats,
+                    personality_id=self.settings.personality_id,
+                    current_state=self.animation.state,
+                    available_states=frozenset(self.assets.states),
+                    time_since_attention_ms=self.behavior.time_since_attention_ms(now),
+                    movement_paused=self.movement_paused,
+                    temporary_animation_active=self.animation.is_temporary,
+                )
             )
-            self._say("idle")
-            return
-        if idle_variation == "sit":
-            self._play_sequence_scaled(
-                [("sit", config.SIT_DURATION_MS)],
-                now,
-                then=config.DEFAULT_STATE,
-            )
-            self._say("idle")
-            return
+            self.last_brain_decision = decision
+            if self._play_brain_decision(decision, now):
+                if decision.speech_trigger:
+                    self._say(decision.speech_trigger)
+                return
 
         if self.behavior.should_blink(now):
             self._play_sequence_scaled(
@@ -662,6 +674,22 @@ class PetWindow(QWidget):
                 now,
                 then=config.DEFAULT_STATE,
             )
+
+    def _play_brain_decision(self, decision: BrainDecision, now_ms: int) -> bool:
+        state = decision.animation_state
+        if state is None or state == config.DEFAULT_STATE:
+            return False
+        if state not in self.assets.states:
+            return False
+        duration_ms = {
+            "blink": config.BLINK_DURATION_MS,
+            "look_around": config.LOOK_AROUND_DURATION_MS,
+            "sit": config.SIT_DURATION_MS,
+            "happy": config.HAPPY_DURATION_MS,
+            "angry": config.ANGRY_BUMP_DURATION_MS,
+            "yawn": config.YAWN_DURATION_MS,
+        }.get(state, config.LOOK_AROUND_DURATION_MS)
+        return self._play_sequence_scaled([(state, duration_ms)], now_ms, then=config.DEFAULT_STATE)
 
     def _apply_motion_step(self, cursor: QPointF, screen_rect, *, allow_motion: bool, allow_follow: bool):
         step = self.behavior.step(

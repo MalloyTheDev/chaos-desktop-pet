@@ -1,6 +1,6 @@
 # Chaos Desktop Pet — Architecture
 
-How the code fits together (v0.5). For the vision and roadmap see
+How the code fits together (v0.6). For the vision and roadmap see
 [ROADMAP.md](ROADMAP.md); for setup/usage see [README.md](README.md).
 
 ## Design shape
@@ -16,6 +16,7 @@ main.py
         └─ PetWindow (QWidget)  ── the only Qt + I/O layer
               ├─ AnimationController + StatePolicy   (animation.py)
               ├─ PetBehavior + ClickTracker          (behavior.py)
+              ├─ WeightedBehaviorBrain                (brain.py)
               ├─ PetStats                             (stats.py)
               ├─ SpriteAssets                         (asset_loader.py)
               ├─ SpeechBubble + VoiceLines            (speech.py)
@@ -38,6 +39,7 @@ main.py
 | `asset_loader.py` | `SpriteAssets`: discover/validate (64×64 + alpha)/natural-sort/cache; `require_idle` | Qt pixmaps | reads PNGs |
 | `animation.py` | `AnimationController` + `StatePolicy` priority/interrupt table | Qt pixmaps | no |
 | `behavior.py` | `PetBehavior` (follow/sleep/blink/idle/knockback) + `ClickTracker` (pure math) | minimal | no |
+| `brain.py` | `WeightedBehaviorBrain`: deterministic mood/personality weighted idle decisions (pure) | no | no |
 | `speech.py` | `VoiceLines` (local JSON) + `SpeechBubble` (click-through popup) | yes | reads/writes JSON |
 | `sfx.py` | `SoundManager` + WAV generator: programmatically builds / plays local synthetic SFX | yes (Qt Audio) | yes |
 | `dialogs.py` | `PetStatusDialog`: Premium QSS dark-themed dashboard showing stats & name/personality edit | yes | yes (saves settings) |
@@ -59,8 +61,10 @@ main.py
 - **Render:** animation timer → `AnimationController.update(now)` cycles frames of
   the current state → label pixmap.
 - **Decide:** behavior timer → `_on_behavior_tick` asks `PetBehavior.step(...)` for a
-  move, then picks a state (follow → `walk`/`run`; idle → `idle`/`look_around`/`sit`/`blink`;
-  tired → `yawn`→`sleep`). State changes go through the animation **policy gate**.
+  move, then asks `WeightedBehaviorBrain` for an idle decision when the pet is not
+  moving and not in a temporary animation. Follow → `walk`/`run`; weighted idle →
+  `blink`/`look_around`/`sit`/`happy`/`angry`/sleepy-adjacent idle when available;
+  tired → `yawn`→`sleep`. State changes go through the animation **policy gate**.
 - **Input:** mouse press/move/release → drag, or `ClickTracker` combo → reaction;
   right-click → context menu. Each interaction also nudges `PetStats`.
 - **Moods:** stats timer drifts the six stats and applies triggers
@@ -68,20 +72,24 @@ main.py
 - **Persist:** autosave + quit → `PetSave.write()`; settings changes (toggle size,
   speech) → `PetSettings.save()`.
 
-## The three "alive" systems
+## The four "alive" systems
 
 1. **Moods give behavior *causes* (`stats.py`).** Stats drift and respond to
    interaction; the widget reads `is_tired` / `is_irritated` to decide actions, so
    the pet's choices have visible reasons.
-2. **Policy stops animation thrashing (`animation.py`).** Each state has
+2. **The weighted brain chooses idle expression (`brain.py`).** It scores available
+   idle candidates from stats, `personality_id`, attention timing, pause state, and
+   temporary-animation state. It is deterministic game-AI-style logic: no AI, no
+   LLM, no network, no file I/O, no Qt.
+3. **Policy stops animation thrashing (`animation.py`).** Each state has
    `(loop, priority, interruptible, return_to)`. A new request starts only if
    nothing one-shot is playing, the current one-shot is interruptible, or the new
    priority is higher (`force=True` for deliberate escalation). Priority ladder:
    `idle/walk/sleep (0) < blink/happy (1) < angry (2) < jump (3) < eat (4)`. This is
    why blink can't interrupt eat, idle can't override angry, and click-spam is safe.
-3. **Behavior is movement personality (`behavior.py`).** Pure functions for
-   follow/run thresholds, knockback arc, sleep timing, blink/idle scheduling, and
-   screen-edge clamping — fully deterministic and unit-tested.
+4. **Behavior is movement personality (`behavior.py`).** Functions for follow/run
+   thresholds, knockback arc, sleep timing, blink/idle scheduling, and screen-edge
+   clamping — fully tested without opening a window.
 
 ## Asset pipeline
 
@@ -91,6 +99,13 @@ alpha) → natural-sorted (`idle_2` before `idle_10`) → scaled once with
 animation loop reads cached pixmaps (no per-frame disk reads). `idle` is mandatory
 (`require_idle` raises a clear error); every other state is optional and falls back
 to `idle`.
+
+## Determinism
+
+The weighted brain uses score-based selection with a stable tie order. Remaining
+local pseudo-random choices (blink/idle schedule timing, occasional mood alerts,
+evasive odds, and speech line selection) use `config.DETERMINISTIC_RNG_SEED`
+instead of unseeded randomness.
 
 ## Files written at runtime (all project-local)
 
@@ -111,6 +126,7 @@ dynamic code execution, autostart, or telemetry anywhere in the app.
 - **New voice lines** — edit `data/voice_lines.json` (keys are triggers:
   `idle/feed/happy/angry/sleep/wake/click`).
 - **New mood rule** — add drift/trigger logic in `stats.py` (stays unit-testable).
+- **New idle decision** — add or tune candidate scoring in `brain.py`.
 - **New setting** — add a field to `PetSettings` + a validator in `settings.py`.
 
 ## Tests
@@ -119,7 +135,7 @@ No window, no pytest dependency:
 
 - `tools/run_tests.py` — natural sort, asset fallback, mandatory-idle, animation
   one-shot/priority, click combos, stat decay, feed effects, save/load roundtrip,
-  corrupt-save fallback, settings defaults.
+  corrupt-save fallback, settings defaults, weighted brain decisions.
 - `tools/behavior_scenarios.py` — movement/animation scenarios (follow/run,
   knockback arc, sleep/wake, edge-clamp, sequencing).
 - `tools/smoke_test.py` — offscreen load + required-state check.

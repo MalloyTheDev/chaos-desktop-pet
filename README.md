@@ -5,10 +5,11 @@ loads local 64×64 transparent PNG frames, scales them crisply with
 nearest-neighbor filtering, and shows the pet in a transparent, always-on-top
 PyQt6 window with moods, reactions, feeding, and local speech bubbles.
 
-**Status:** v0.5.0 · local-only · fully offline · no AI/network/telemetry.
+**Status:** v0.6.0 · local-only · fully offline · no AI/network/telemetry.
 
 The goal is a creature that feels *alive* — responsive and moody — entirely
-offline and deterministic. The big picture and roadmap are in
+offline and deterministic. The v0.6 "brain" is deterministic game-AI-style
+behavior scoring, not an AI/LLM/API system. The big picture and roadmap are in
 [ROADMAP.md](ROADMAP.md); how the code fits together is in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -31,7 +32,9 @@ offline and deterministic. The big picture and roadmap are in
 - Crisp transparent rendering; cached frames; missing optional states fall back to
   `idle` (and a missing `idle` fails with a clear error).
 - Animation **priority/interrupt policy** — one-shots don't thrash; click-spam is safe.
-- Idle wander, cursor follow (`walk`/`run`), screen-edge clamping, drag-to-move.
+- Mood-weighted idle choices via a deterministic weighted brain (`blink`,
+  `look_around`, `sit`, `happy`, `angry`, sleepy-adjacent idle when available).
+- Cursor follow (`walk`/`run`), screen-edge clamping, drag-to-move.
 - **Moods** (`hunger`, `energy`, `happiness`, `annoyance`, `curiosity`, `trust`) that drift and react.
 - **Interactive Drag Animations** — loops `fall` sprite during drag and executes a cushioning `land` sequence on drop release.
 - **Pet Status Dialog** — QSS-styled dashboard displaying Needs stats in real-time and allowing name/personality changes.
@@ -88,6 +91,7 @@ src/chaos_pet/
   asset_loader.py          sprite discovery/validation/cache
   animation.py             AnimationController + priority policy
   behavior.py              movement/idle/sleep + ClickTracker
+  brain.py                 deterministic mood-weighted idle decision layer
   speech.py                local voice lines + bubble
   app.py                   PetWindow + run() (Qt + wiring)
 tools/                     validate_assets, smoke_test, run_tests, behavior_scenarios
@@ -153,8 +157,9 @@ Valid `starting_corner` values: `top_left`, `top_right`, `bottom_left`,
 `bottom_right`, `center`. Out-of-range or wrong-typed values are rejected with a
 logged warning and replaced by defaults.
 
-> Note: `personality_id` and `debug_enabled` are persisted but not yet wired to
-> behavior — they're placeholders for the next patch (see [ROADMAP.md](ROADMAP.md)).
+`personality_id` is live: it affects stat drift, feed/click effects, speech line
+selection, and the v0.6 weighted idle brain. `debug_enabled` shows the live stats
+overlay and, in v0.6, the last brain decision.
 
 ## Mood / stats
 
@@ -162,7 +167,26 @@ Six 0–100 stats drift over time: hunger rises, energy falls while awake and
 recovers while asleep, annoyance decays, happiness/curiosity normalize. Feeding
 lowers hunger and raises happiness/trust; rapid clicking raises annoyance. Low
 energy nudges the pet toward sleep; high annoyance can trigger an evasive angry
-flash.
+flash. Personality modulates drift and interaction effects without overriding the
+stats completely.
+
+## Weighted brain (v0.6)
+
+`src/chaos_pet/brain.py` scores idle candidates from current stats,
+`personality_id`, available animation states, time since attention, pause state,
+and whether a protected temporary animation is active. It is pure Python with no
+Qt, no file I/O, no network, and no AI/LLM calls.
+
+Local pseudo-random timing and line selection use a fixed project seed, so the
+offline behavior stays replayable instead of using unseeded randomness.
+
+Examples:
+
+- high curiosity + playful personality tends toward `look_around`
+- low energy + lazy personality tends toward `sit` / sleepy-adjacent idle
+- high happiness + high trust + affectionate personality tends toward `happy`
+- high annoyance + grumpy personality tends toward `angry`
+- missing optional sprite states are skipped cleanly
 
 ## Validate, smoke-test, and test
 
@@ -171,7 +195,7 @@ No-window checks (offscreen Qt; no pytest needed):
 ```powershell
 python tools\validate_assets.py      # per-PNG 64x64 + alpha, and the mandatory 'idle' state
 python tools\smoke_test.py           # load settings + assets, check idle fallback, no window
-python tools\run_tests.py            # 57 unit tests: stats, save/load, animation policy, settings, combos, migration
+python tools\run_tests.py            # 66 unit tests: stats, save/load, animation policy, settings, combos, migration, brain
 python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 ```
 

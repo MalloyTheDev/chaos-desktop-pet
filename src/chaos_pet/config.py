@@ -94,3 +94,6 @@ STATS_TICK_MS = 1_000
 HUNGER_DRIFT_RATE = 0.0005
 ENERGY_DRIFT_RATE = 0.001
 ANNOYANCE_DECAY_RATE = 4.0
+
+# Local pseudo-random choices use a fixed seed so behavior remains replayable.
+DETERMINISTIC_RNG_SEED = 1337

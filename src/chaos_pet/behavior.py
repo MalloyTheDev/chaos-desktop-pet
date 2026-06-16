@@ -23,10 +23,11 @@ class PetBehavior:
         *,
         walk_speed_px: float = config.WALK_SPEED_PX,
         sleep_after_ms: int = config.SLEEP_AFTER_MS,
+        rng_seed: int = config.DETERMINISTIC_RNG_SEED,
     ) -> None:
         self.walk_speed_px = walk_speed_px
         self.sleep_after_ms = sleep_after_ms
-        self._rng = random.Random()
+        self._rng = random.Random(rng_seed)
         self._last_attention_ms = 0
         self._next_blink_ms = 0
         self._next_idle_variation_ms = 0
@@ -146,11 +147,14 @@ class PetBehavior:
         self._schedule_next_blink(now_ms)
         return True
 
-    def next_idle_variation(self, now_ms: int) -> str | None:
+    def idle_variation_due(self, now_ms: int) -> bool:
         if now_ms < self._next_idle_variation_ms:
-            return None
+            return False
         self._schedule_next_idle_variation(now_ms)
-        return "look_around" if self._rng.random() < 0.65 else "sit"
+        return True
+
+    def time_since_attention_ms(self, now_ms: int) -> int:
+        return max(0, now_ms - self._last_attention_ms)
 
     def cursor_counts_as_attention(self, distance_to_cursor: float) -> bool:
         return distance_to_cursor <= config.CURSOR_ATTENTION_DISTANCE_PX
