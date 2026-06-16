@@ -9,6 +9,29 @@ Status legend: ✅ fixed · 🟡 partially addressed · ⬜ open · ♻️ stand
 
 ---
 
+## 2026-06-16 — v0.6.1 Runtime Write Boundary Audit
+
+**Method.** Focused review of runtime writes, path guards, SFX generation,
+project-local persistence helpers, and no-network/no-invasive guarantees before
+starting v0.7.
+**Result:** 3 findings resolved.
+
+### Findings
+
+| Severity | Finding | File | Status |
+| --- | --- | --- | --- |
+| MEDIUM | Generated SFX wrote to `assets/sounds/`, which was project-local but violated the stricter rule that runtime writes stay under `data/` and `logs/`. | `config.py`, `sfx.py`, docs | ✅ Fixed — Generated sounds now use `data/sounds/`. |
+| LOW | `write_json_atomic` relied on callers to enforce write boundaries and could write to other project-local paths if misused. | `persistence.py` | ✅ Hardened — Helper now refuses JSON writes outside `data/` and `logs/`. |
+| LOW | Sound playback accepted arbitrary local sound names from callers. Current callers were fixed strings, but the sink was broader than needed. | `sfx.py` | ✅ Hardened — Playback now uses a fixed sound-name allowlist. |
+
+### Live test evidence (2026-06-16)
+- `validate_assets.py`: 60 valid, 0 invalid.
+- `smoke_test.py`: passed; all expected animation states load.
+- `run_tests.py`: 70/70 passed.
+- `behavior_scenarios.py`: 24/24 passed.
+
+---
+
 ## 2026-06-16 — Security Hardening, Bug Fix & Feature Audit
 
 **Method.** Full review of file access vectors, path traversal guards, multi-monitor coordinates clamping, programmatic WAV wave generator outputs, and new Pet Status QDialog / customizable drift settings. Verified via automated unit/behavior test extensions.

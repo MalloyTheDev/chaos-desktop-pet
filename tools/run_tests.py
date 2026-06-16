@@ -300,11 +300,20 @@ def test_trust_drift() -> None:
 
 
 def test_security_guards() -> None:
-    from chaos_pet.persistence import is_project_local
+    from chaos_pet.persistence import is_project_local, is_runtime_write_path, write_json_atomic
     from chaos_pet.speech import VoiceLines
 
     ok_path = config.PROJECT_ROOT / "data" / "save.json"
     check("security: local path accepted", is_project_local(ok_path) is True)
+    check("security: data path accepted for runtime writes", is_runtime_write_path(ok_path) is True)
+
+    root_write_path = config.PROJECT_ROOT / "_test_forbidden_runtime_write.json"
+    try:
+        root_write_ok = write_json_atomic(root_write_path, {"blocked": True})
+        check("security: project-root JSON write refused", root_write_ok is False and not root_write_path.exists())
+    finally:
+        if root_write_path.exists():
+            root_write_path.unlink()
 
     bad_path = Path("C:/Windows/System32/cmd.exe") if os.name == "nt" else Path("/etc/passwd")
     check("security: out-of-root path refused", is_project_local(bad_path) is False)
@@ -326,6 +335,16 @@ def test_security_guards() -> None:
     bad_sfx_path = Path("C:/Windows/System32/nonexistent_sfx.wav") if os.name == "nt" else Path("/etc/nonexistent_sfx.wav")
     _generate_wav(bad_sfx_path, 0.1, func=lambda t, d: 0.0)
     check("security: bad sfx path write refused", not bad_sfx_path.exists())
+
+    project_bad_sfx_path = config.PROJECT_ROOT / "_bad_sfx.wav"
+    try:
+        _generate_wav(project_bad_sfx_path, 0.1, func=lambda t, d: 0.0)
+        check("security: project-root sfx write refused", not project_bad_sfx_path.exists())
+    finally:
+        if project_bad_sfx_path.exists():
+            project_bad_sfx_path.unlink()
+
+    check("security: generated sounds stay under data", is_runtime_write_path(config.SOUNDS_DIR / "squeak.wav"))
 
 
 def main() -> int:

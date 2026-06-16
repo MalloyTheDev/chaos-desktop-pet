@@ -113,11 +113,12 @@ instead of unseeded randomness.
 data/settings.json     user settings (atomic; migrated once from ./settings.json)
 data/save.json         position, last state, stats, identity (atomic; corrupt → defaults)
 data/voice_lines.json  editable local speech lines
+data/sounds/*.wav      generated synthetic sound effects
 logs/chaos_pet.log     rotating log (no private/system data)
 ```
 
-Nothing is written outside the project folder. No network, registry, subprocess,
-dynamic code execution, autostart, or telemetry anywhere in the app.
+Nothing is written outside `data/` and `logs/`. No network, registry,
+subprocess, dynamic code execution, autostart, or telemetry anywhere in the app.
 
 ## Extension points
 

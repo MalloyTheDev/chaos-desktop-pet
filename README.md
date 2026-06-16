@@ -96,7 +96,7 @@ src/chaos_pet/
   app.py                   PetWindow + run() (Qt + wiring)
 tools/                     validate_assets, smoke_test, run_tests, behavior_scenarios
 assets/monkey/<state>/     your real 64x64 PNG frames
-data/  logs/               created at runtime (save, settings, voice lines, log)
+data/  logs/               created at runtime (save, settings, voice lines, sounds, log)
 ```
 
 Full module responsibilities and data flow: [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -126,6 +126,7 @@ All runtime data lives inside this project folder. Nothing is written elsewhere.
   Written atomically (temp file then replace); a corrupt save logs a warning and
   falls back to defaults. *Delete it for a fresh start.*
 - `data/voice_lines.json` — local speech lines you can edit (no AI/network).
+- `data/sounds/*.wav` — local synthetic sound effects generated on demand.
 - `logs/chaos_pet.log` — rotating log (startup/shutdown, asset validation, save/load,
   caught errors). Never logs clipboard, screenshots, window titles, or private data.
 
@@ -195,7 +196,7 @@ No-window checks (offscreen Qt; no pytest needed):
 ```powershell
 python tools\validate_assets.py      # per-PNG 64x64 + alpha, and the mandatory 'idle' state
 python tools\smoke_test.py           # load settings + assets, check idle fallback, no window
-python tools\run_tests.py            # 66 unit tests: stats, save/load, animation policy, settings, combos, migration, brain
+python tools\run_tests.py            # 70 unit tests: stats, save/load, animation policy, settings, combos, migration, brain, security
 python tools\behavior_scenarios.py   # 24 movement/animation scenario tests
 ```
 

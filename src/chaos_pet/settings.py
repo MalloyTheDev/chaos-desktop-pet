@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from . import config
-from .persistence import is_project_local, read_json, write_json_atomic
+from .persistence import is_project_local, is_runtime_write_path, read_json, write_json_atomic
 
 LOGGER = logging.getLogger(__name__)
 VALID_STARTING_CORNERS = {"top_left", "top_right", "bottom_left", "bottom_right", "center"}
@@ -75,8 +75,8 @@ class PetSettings:
         }
 
     def save(self, path: Path = config.USER_SETTINGS_PATH) -> bool:
-        if not is_project_local(path):
-            LOGGER.warning("Refusing to write settings outside project: %s", path)
+        if not is_runtime_write_path(path):
+            LOGGER.warning("Refusing to write settings outside data/logs runtime roots: %s", path)
             return False
         ok = write_json_atomic(path, self.to_dict())
         if ok:
@@ -226,6 +226,5 @@ def _corner_setting(raw: dict[str, Any], key: str, default: str) -> str:
         return value
     LOGGER.warning("Setting '%s' must be one of %s; using %s.", key, ", ".join(sorted(VALID_STARTING_CORNERS)), default)
     return default
-
 
 

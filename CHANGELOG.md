@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format is based on
 resolution status live in [AUDITS.md](AUDITS.md); the safety posture is in
 [SECURITY.md](SECURITY.md).
 
+## [0.6.1] - 2026-06-16
+
+### Security
+- Moved generated synthetic SFX output from `assets/sounds/` to
+  `data/sounds/`, keeping runtime writes inside the approved `data/` and
+  `logs/` roots.
+- Hardened `write_json_atomic` so JSON writes are refused outside `data/` and
+  `logs/`, even for other paths inside the project folder.
+- Hardened sound generation and playback with runtime-write-root checks and a
+  fixed sound-name allowlist.
+
+### Tests
+- Extended security tests for project-root write refusal, project-root SFX
+  refusal, and `data/sounds/` placement.
+
 ## [0.6.0] - 2026-06-16
 
 ### Added

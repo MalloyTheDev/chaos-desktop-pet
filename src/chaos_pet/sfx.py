@@ -10,14 +10,15 @@ from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from . import config
-from .persistence import is_project_local
+from .persistence import is_path_within, is_runtime_write_path
 
 LOGGER = logging.getLogger(__name__)
+KNOWN_SOUNDS = frozenset({"squeak", "munch", "snore", "boing"})
 
 
 def _generate_wav(path: Path, duration: float, sample_rate: int = 22050, func=None) -> None:
-    if not is_project_local(path):
-        LOGGER.warning("Refusing to generate sound outside project: %s", path)
+    if not is_runtime_write_path(path):
+        LOGGER.warning("Refusing to generate sound outside data/logs runtime roots: %s", path)
         return
     num_samples = int(duration * sample_rate)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,6 +92,10 @@ def check_and_generate_sounds(sounds_dir: Path = config.SOUNDS_DIR) -> None:
         "boing.wav": (0.25, _boing_func),
     }
 
+    if not is_runtime_write_path(sounds_dir):
+        LOGGER.warning("Refusing to generate sounds outside data/logs runtime roots: %s", sounds_dir)
+        return
+
     for filename, (duration, func) in sounds.items():
         path = sounds_dir / filename
         if not path.exists():
@@ -135,13 +140,17 @@ class SoundManager(QObject):
         if not self.enabled:
             return
 
+        if name not in KNOWN_SOUNDS:
+            LOGGER.warning("Refusing unknown sound name: %s", name)
+            return
+
         self._init_player()  # lazy initialization if needed
         if self._player is None:
             return
 
         sound_path = config.SOUNDS_DIR / f"{name}.wav"
-        if not is_project_local(sound_path):
-            LOGGER.warning("Refusing to play sound outside project: %s", sound_path)
+        if not is_path_within(sound_path, config.SOUNDS_DIR):
+            LOGGER.warning("Refusing to play sound outside configured sound dir: %s", sound_path)
             return
         if not sound_path.exists():
             LOGGER.warning("Sound file not found: %s", sound_path)
