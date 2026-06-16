@@ -113,6 +113,12 @@ def test_stat_decay() -> None:
     check("stats: energy falls while awake", s.energy < 50.0, str(s.energy))
     check("stats: annoyance decays", s.annoyance < 40.0, str(s.annoyance))
 
+    # Test idle energy conservation
+    s_idle = PetStats(energy=50.0)
+    s_idle.update(10.0, idle=True)
+    check("stats: energy does not decay when idle", s_idle.energy == 50.0, str(s_idle.energy))
+    check("stats: hunger still rises when idle", s_idle.hunger > 25.0, str(s_idle.hunger))
+
     # Test custom rates
     s_default_2 = PetStats(hunger=10.0, energy=50.0, annoyance=40.0)
     s_default_2.update(2.0)

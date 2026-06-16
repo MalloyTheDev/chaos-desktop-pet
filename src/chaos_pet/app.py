@@ -500,10 +500,13 @@ class PetWindow(QWidget):
         dt_s = max(0.0, (now - self._last_stats_ms) / 1000.0)
         self._last_stats_ms = now
 
-        asleep = self.animation.state == "sleep"
+        current_state = self.animation.state
+        asleep = current_state == "sleep"
+        idle = current_state in {"idle", "sit", "blink", "look_around", "yawn", "wake"}
         self.stats.update(
             dt_s,
             asleep=asleep,
+            idle=idle,
             personality_id=self.settings.personality_id,
             hunger_rate=self.settings.hunger_drift_rate,
             energy_rate=self.settings.energy_drift_rate,

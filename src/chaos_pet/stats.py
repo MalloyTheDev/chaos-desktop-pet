@@ -33,6 +33,7 @@ class PetStats:
         dt_s: float,
         *,
         asleep: bool = False,
+        idle: bool = False,
         personality_id: str = "playful",
         hunger_rate: float = 0.6,
         energy_rate: float = 0.45,
@@ -50,9 +51,11 @@ class PetStats:
 
         # Hunger slowly rises.
         self.hunger = clamp(self.hunger + hunger_rate * dt_s * hunger_rise_mult)
-        # Energy falls while awake, recovers while asleep.
+        # Energy falls while awake and not idle, recovers while asleep, stays constant when idle.
         if asleep:
             self.energy = clamp(self.energy + 2.5 * dt_s)
+        elif idle:
+            pass  # energy does not decrease in idle mode
         else:
             self.energy = clamp(self.energy - energy_rate * dt_s * energy_decay_mult)
         # Happiness normalizes toward neutral (50).

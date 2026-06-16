@@ -30,7 +30,7 @@ class PetStatusDialog(QDialog):
             | Qt.WindowType.WindowCloseButtonHint
         )
         self.setWindowTitle(f"Status - {parent.settings.pet_name}")
-        self.setFixedSize(300, 440)
+        self.setFixedSize(320, 520)  # Increased height to prevent layout squishing
 
         # Style sheet for premium appearance
         self.setStyleSheet(
@@ -49,38 +49,42 @@ class PetStatusDialog(QDialog):
             " color: #ffffff;"
             " border: 1px solid #4a4a5a;"
             " border-radius: 6px;"
-            " padding: 5px;"
+            " padding: 4px 8px;"
             " font-size: 12px;"
+            " height: 20px;"
             "}"
             "QComboBox {"
             " background-color: #2e2e38;"
             " color: #ffffff;"
             " border: 1px solid #4a4a5a;"
             " border-radius: 6px;"
-            " padding: 5px;"
+            " padding: 4px 8px;"
             " font-size: 12px;"
+            " height: 20px;"
             "}"
             "QProgressBar {"
             " border: none;"
             " background-color: #2e2e38;"
-            " border-radius: 4px;"
+            " border-radius: 5px;"
             " text-align: center;"
             " color: #ffffff;"
             " font-weight: bold;"
             " font-size: 10px;"
+            " height: 18px;"
             "}"
             "QProgressBar::chunk {"
             " background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ff8a00, stop:1 #e52e71);"
-            " border-radius: 4px;"
+            " border-radius: 5px;"
             "}"
             "QPushButton {"
             " background-color: #e52e71;"
             " color: #ffffff;"
             " border: none;"
             " border-radius: 6px;"
-            " padding: 8px;"
+            " padding: 6px 16px;"
             " font-size: 12px;"
             " font-weight: bold;"
+            " min-width: 70px;"
             "}"
             "QPushButton:hover {"
             " background-color: #ff4a85;"
@@ -88,12 +92,13 @@ class PetStatusDialog(QDialog):
         )
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(8)  # Reduced spacing to make the layout fit comfortably
 
         # Header Info (Name & Personality)
         name_layout = QHBoxLayout()
         name_label = QLabel("NAME:", self)
+        name_label.setFixedWidth(90)  # Fixed width to prevent label squishing
         self.name_edit = QLineEdit(self)
         self.name_edit.setText(parent.settings.pet_name)
         self.name_edit.editingFinished.connect(self._on_name_changed)
@@ -103,6 +108,7 @@ class PetStatusDialog(QDialog):
 
         p_layout = QHBoxLayout()
         p_label = QLabel("PERSONALITY:", self)
+        p_label.setFixedWidth(90)  # Align with Name label
         self.p_combo = QComboBox(self)
         self.p_combo.addItems(["playful", "lazy", "grumpy", "affectionate"])
         self.p_combo.setCurrentText(parent.settings.personality_id)
@@ -114,7 +120,7 @@ class PetStatusDialog(QDialog):
         # Separator Line
         line = QWidget(self)
         line.setFixedHeight(1)
-        line.setStyleSheet("background-color: #4a4a5a;")
+        line.setStyleSheet("background-color: #4a4a5a; margin-top: 5px; margin-bottom: 5px;")
         layout.addWidget(line)
 
         # Stats progress bars
@@ -136,6 +142,8 @@ class PetStatusDialog(QDialog):
             self.bars[key] = bar
             layout.addWidget(lbl)
             layout.addWidget(bar)
+
+        layout.addSpacing(5)  # Small visual spacing before the button
 
         # Bottom Close button
         btn_layout = QHBoxLayout()
